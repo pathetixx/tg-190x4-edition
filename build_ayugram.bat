@@ -82,6 +82,12 @@ if errorlevel 1 (
 python tools\verify_private_fork.py
 if errorlevel 1 exit /b %ERRORLEVEL%
 
+:: Serialize libvpx Debug/Release builds. Its generated make target starts both
+:: MSBuild configurations concurrently and can corrupt a shared NASM object on
+:: a hosted runner.
+python tools\patch_prepare_for_ci.py
+if errorlevel 1 exit /b %ERRORLEVEL%
+
 :: 5. Prepare dependencies
 echo ==================================================
 echo Preparing dependencies...
