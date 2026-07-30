@@ -1,16 +1,16 @@
 name: Windows x64
 
 on:
-  push:
+  pull_request:
     branches:
-      - work/ayu-7.0.6-hardening
+      - main
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: windows-x64-${{ github.ref }}
+  group: windows-x64-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
