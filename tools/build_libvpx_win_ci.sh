@@ -18,21 +18,37 @@ popd > /dev/null
 --enable-webm-io \
 --size-limit=4096x4096
 
-# libvpx generates a Visual Studio solution whose Makefile invokes MSBuild with
-# unrestricted project parallelism (`-m`). On GitHub-hosted Windows runners the
-# vpx and vpxrc projects can assemble the same NASM object concurrently, leaving
-# a truncated .obj and failing with LNK1136. Force one MSBuild node for this
-# dependency only; the rest of the AyuGram build remains parallel.
-if ! grep -Fq 'msbuild.exe vpx.sln -m ' Makefile; then
-  echo '[ERROR] Expected libvpx MSBuild command was not found in Makefile.' >&2
+# gen_msvs_sln.sh writes the MSBuild recipe to vpx.sln.mk. The generated
+# solution otherwise uses unrestricted project parallelism (`-m`), which lets
+# vpx and vpxrc assemble a shared NASM object concurrently on hosted runners.
+# Restrict this dependency to one MSBuild node to prevent truncated objects and
+# LNK1136; the rest of the AyuGram build remains parallel.
+SOLUTION_MAKEFILE="vpx.sln.mk"
+ORIGINAL='$(MSBUILD_TOOL) vpx.sln -m -t:Build'
+SERIALIZED='$(MSBUILD_TOOL) vpx.sln -m:1 -t:Build'
+
+if [[ ! -f "$SOLUTION_MAKEFILE" ]]; then
+  echo "[ERROR] Generated libvpx make fragment was not found: $SOLUTION_MAKEFILE" >&2
   exit 1
 fi
-sed -i 's/msbuild\.exe vpx\.sln -m /msbuild.exe vpx.sln -m:1 /g' Makefile
-if grep -Fq 'msbuild.exe vpx.sln -m ' Makefile; then
+if ! grep -Fq "$ORIGINAL" "$SOLUTION_MAKEFILE"; then
+  echo '[ERROR] Expected libvpx MSBuild recipe was not found in vpx.sln.mk.' >&2
+  grep -nF 'MSBUILD_TOOL' "$SOLUTION_MAKEFILE" >&2 || true
+  exit 1
+fi
+
+sed -i 's/$(MSBUILD_TOOL) vpx\.sln -m -t:Build/$(MSBUILD_TOOL) vpx.sln -m:1 -t:Build/g' "$SOLUTION_MAKEFILE"
+
+if grep -Fq "$ORIGINAL" "$SOLUTION_MAKEFILE"; then
   echo '[ERROR] Failed to disable libvpx MSBuild project parallelism.' >&2
   exit 1
 fi
-grep -F 'msbuild.exe vpx.sln -m:1 ' Makefile
+if ! grep -Fq "$SERIALIZED" "$SOLUTION_MAKEFILE"; then
+  echo '[ERROR] Serialized libvpx MSBuild recipe was not produced.' >&2
+  exit 1
+fi
+
+grep -nF "$SERIALIZED" "$SOLUTION_MAKEFILE"
 
 make -j1
 make -j1 install
