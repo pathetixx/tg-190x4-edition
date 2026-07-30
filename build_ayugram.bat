@@ -2,8 +2,20 @@
 setlocal enabledelayedexpansion
 
 echo ==================================================
-echo AyuGram Desktop Auto-Builder
+echo AyuGram Desktop Private Fork Builder
 echo ==================================================
+
+:: Never commit API credentials. Provide them for the current shell:
+::   set TDESKTOP_API_ID=123456
+::   set TDESKTOP_API_HASH=0123456789abcdef0123456789abcdef
+if not defined TDESKTOP_API_ID (
+    echo [ERROR] TDESKTOP_API_ID is not set.
+    exit /b 2
+)
+if not defined TDESKTOP_API_HASH (
+    echo [ERROR] TDESKTOP_API_HASH is not set.
+    exit /b 2
+)
 
 :: 1. Find Visual Studio 2022 using vswhere
 set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
@@ -13,7 +25,6 @@ if not exist "!VSWHERE!" (
 
 if not exist "!VSWHERE!" (
     echo [ERROR] Could not find vswhere.exe. Please ensure Visual Studio 2022 is installed.
-    pause
     exit /b 1
 )
 
@@ -24,7 +35,6 @@ for /f "usebackq tokens=*" %%i in (`"!VSWHERE!" -version [17.0^,18.0^) -property
 
 if "!VS_PATH!"=="" (
     echo [ERROR] Visual Studio 2022 installation path not found.
-    pause
     exit /b 1
 )
 
@@ -39,7 +49,6 @@ if not exist "!VCVARS!" (
 
 if not exist "!VCVARS!" (
     echo [ERROR] Could not find vcvars64.bat or vcvarsall.bat in Visual Studio installation.
-    pause
     exit /b 1
 )
 
@@ -49,10 +58,11 @@ if "!VCVARS_ARGS!"=="" (
 ) else (
     call "!VCVARS!" !VCVARS_ARGS!
 )
+if errorlevel 1 exit /b %ERRORLEVEL%
 
 :: 3. Find Python and add to PATH if not already present
 where python >nul 2>&1
-if %ERRORLEVEL% neq 0 (
+if errorlevel 1 (
     echo Python not found in system PATH. Searching standard folders...
     for /d %%d in ("%LocalAppData%\Programs\Python\Python*") do (
         if exist "%%d\python.exe" (
@@ -62,49 +72,58 @@ if %ERRORLEVEL% neq 0 (
     )
 )
 
-:: Re-verify Python presence
 where python >nul 2>&1
-if %ERRORLEVEL% neq 0 (
+if errorlevel 1 (
     echo [ERROR] Python not found. Please install Python and add it to PATH.
-    pause
     exit /b 1
 )
 
-:: 4. Run Win.bat dependency preparation in silent mode
+:: 4. Verify fork identity before spending time on dependencies.
+python tools\verify_private_fork.py
+if errorlevel 1 exit /b %ERRORLEVEL%
+
+:: 5. Prepare dependencies
 echo ==================================================
-echo Preparing dependencies (silent mode)...
+echo Preparing dependencies...
 echo ==================================================
 call Telegram\build\prepare\win.bat silent
-if %ERRORLEVEL% neq 0 (
+if errorlevel 1 (
     echo [ERROR] Dependency preparation failed.
-    pause
     exit /b %ERRORLEVEL%
 )
 
-:: 5. Configure project
+:: 6. Configure. Auto-update stays disabled until this fork owns its
+:: update endpoint and signing key.
 echo ==================================================
-echo Configuring AyuGram...
+echo Configuring AyuGram private fork...
 echo ==================================================
-call Telegram\configure.bat x64 -D TDESKTOP_API_ID=2040 -D TDESKTOP_API_HASH=b18441a1ff607e10a989891a5462e627
-if %ERRORLEVEL% neq 0 (
+call Telegram\configure.bat x64 ^
+  -D TDESKTOP_API_ID=!TDESKTOP_API_ID! ^
+  -D TDESKTOP_API_HASH=!TDESKTOP_API_HASH! ^
+  -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON
+if errorlevel 1 (
     echo [ERROR] Configuration failed.
-    pause
     exit /b %ERRORLEVEL%
 )
 
-:: 6. Build project
+:: 7. Build
 echo ==================================================
 echo Building AyuGram (Release)...
 echo ==================================================
-cmake --build out --config Release
-if %ERRORLEVEL% neq 0 (
+cmake --build out --config Release --target Telegram
+if errorlevel 1 (
     echo [ERROR] Build failed.
-    pause
     exit /b %ERRORLEVEL%
 )
 
+if not exist "out\Release\AyuGram.exe" (
+    echo [ERROR] Build finished, but out\Release\AyuGram.exe was not produced.
+    exit /b 3
+)
+
 echo ==================================================
-echo AyuGram compiled successfully!
-echo The executable is located at: out\Release\AyuGram.exe
+echo AyuGram compiled successfully.
+echo Executable: out\Release\AyuGram.exe
+echo Auto-update: disabled
 echo ==================================================
-pause
+exit /b 0
