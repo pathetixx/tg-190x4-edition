@@ -1,0 +1,8 @@
+{
+  "repository": "https://github.com/PH4N7OMx/AyuGramDesktop.git",
+  "commit": "aade78974c8634dd35168012f42585ebd8eb81e4",
+  "telegramDesktopVersion": "7.0.6",
+  "ayuGramAppId": "{53F49750-6209-4FBF-9CA8-7A333C87D666}",
+  "ayuGramExecutable": "AyuGram.exe",
+  "autoUpdate": false
+}
