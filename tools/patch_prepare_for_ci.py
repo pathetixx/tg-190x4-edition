@@ -72,6 +72,7 @@ def validate_embedded_copy_command(source: str) -> bool:
         )
         return False
 
+    print(f"Validated libvpx runtime command: {runtime_line}")
     return True
 
 
