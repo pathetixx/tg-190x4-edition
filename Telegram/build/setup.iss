@@ -34,7 +34,7 @@ CloseApplications=force
 DisableDirPage=no
 DisableProgramGroupPage=no
 WizardStyle=modern
-SignTool=sha256
+; CI artifacts stay unsigned until this fork has its own code-signing certificate.
 
 #if MyBuildTarget == "winarm"
   ArchitecturesAllowed="arm64"
