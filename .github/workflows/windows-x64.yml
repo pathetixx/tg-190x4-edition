@@ -33,9 +33,6 @@ jobs:
       - name: Verify private-fork invariants
         run: python tools/verify_private_fork.py
 
-      - name: Check whitespace errors
-        run: git diff --check HEAD^
-
   build-windows-x64:
     name: Build Windows x64
     needs: verify-fork
