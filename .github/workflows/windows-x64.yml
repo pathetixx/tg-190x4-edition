@@ -1,0 +1,164 @@
+name: Windows x64
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-x64-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-fork:
+    name: Verify fork identity
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Verify private-fork invariants
+        run: python tools/verify_private_fork.py
+
+  build-windows-x64:
+    name: Build Windows x64
+    needs: verify-fork
+    runs-on: windows-2022
+    timeout-minutes: 360
+    env:
+      # Repository secrets override the public Telegram Desktop bootstrap values.
+      # The fallback exists only to make the first CI build reproducible.
+      TDESKTOP_API_ID: ${{ secrets.TDESKTOP_API_ID || '2040' }}
+      TDESKTOP_API_HASH: ${{ secrets.TDESKTOP_API_HASH || 'b18441a1ff607e10a989891a5462e627' }}
+    steps:
+      - name: Checkout with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Reclaim runner disk space
+        shell: pwsh
+        run: |
+          Get-PSDrive -PSProvider FileSystem
+          $paths = @(
+            'C:\Android',
+            'C:\hostedtoolcache\windows\CodeQL'
+          )
+          foreach ($path in $paths) {
+            if (Test-Path $path) {
+              Write-Host "Removing $path"
+              Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue
+            }
+          }
+          Get-PSDrive -PSProvider FileSystem
+
+      - name: Verify source identity
+        shell: pwsh
+        run: python tools/verify_private_fork.py
+
+      - name: Build AyuGram
+        shell: cmd
+        run: call build_ayugram.bat
+
+      - name: Verify executable metadata
+        shell: pwsh
+        run: |
+          $exe = Join-Path $env:GITHUB_WORKSPACE 'out\Release\AyuGram.exe'
+          $updater = Join-Path $env:GITHUB_WORKSPACE 'out\Release\Updater.exe'
+          if (-not (Test-Path $exe)) { throw 'AyuGram.exe was not produced.' }
+          if (-not (Test-Path $updater)) { throw 'Updater.exe was not produced.' }
+
+          $version = (Get-Item $exe).VersionInfo
+          Write-Host "ProductName=$($version.ProductName)"
+          Write-Host "FileDescription=$($version.FileDescription)"
+          Write-Host "FileVersion=$($version.FileVersion)"
+          Write-Host "ProductVersion=$($version.ProductVersion)"
+
+          if ($version.ProductName -ne 'AyuGram Desktop') {
+            throw "Unexpected ProductName: $($version.ProductName)"
+          }
+          if ($version.FileDescription -ne 'AyuGram Desktop') {
+            throw "Unexpected FileDescription: $($version.FileDescription)"
+          }
+          if (-not $version.FileVersion.StartsWith('7.0.6')) {
+            throw "Unexpected FileVersion: $($version.FileVersion)"
+          }
+
+      - name: Build unsigned installer
+        shell: pwsh
+        run: |
+          $isccCandidates = @(
+            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+            "${env:ProgramFiles(x86)}\Inno Setup 5\ISCC.exe"
+          )
+          $iscc = $isccCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $iscc) {
+            choco install innosetup --no-progress -y
+            $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          }
+          if (-not (Test-Path $iscc)) { throw 'ISCC.exe was not found.' }
+
+          $release = Join-Path $env:GITHUB_WORKSPACE 'out\Release'
+          & $iscc `
+            '/DMyAppVersion=7.0.6' `
+            '/DMyAppVersionFull=7.0.6' `
+            "/DReleasePath=$release" `
+            '/DMyBuildTarget=win64' `
+            'Telegram\build\setup.iss'
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed with exit code $LASTEXITCODE" }
+
+          $installer = Join-Path $release 'ayusetup-x64.7.0.6.exe'
+          if (-not (Test-Path $installer)) { throw 'Installer was not produced.' }
+
+      - name: Package artifacts
+        shell: pwsh
+        run: |
+          $release = Join-Path $env:GITHUB_WORKSPACE 'out\Release'
+          $artifactRoot = Join-Path $env:GITHUB_WORKSPACE 'artifacts'
+          $portableRoot = Join-Path $artifactRoot 'portable'
+          New-Item -ItemType Directory -Path $portableRoot -Force | Out-Null
+
+          Copy-Item (Join-Path $release 'AyuGram.exe') $portableRoot
+          Copy-Item (Join-Path $release 'Updater.exe') $portableRoot
+          $modules = Join-Path $release 'modules'
+          if (Test-Path $modules) {
+            Copy-Item $modules $portableRoot -Recurse
+          }
+
+          $portableZip = Join-Path $artifactRoot 'AyuGram-portable-x64-7.0.6.zip'
+          Compress-Archive -Path (Join-Path $portableRoot '*') -DestinationPath $portableZip -CompressionLevel Optimal
+
+          Copy-Item (Join-Path $release 'ayusetup-x64.7.0.6.exe') $artifactRoot
+          Get-FileHash (Join-Path $artifactRoot '*') -Algorithm SHA256 |
+            Format-Table -AutoSize |
+            Out-String |
+            Set-Content (Join-Path $artifactRoot 'SHA256SUMS.txt')
+
+          Get-ChildItem $artifactRoot -File | Select-Object Name, Length
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: AyuGram-Windows-x64-7.0.6
+          path: |
+            artifacts/AyuGram-portable-x64-7.0.6.zip
+            artifacts/ayusetup-x64.7.0.6.exe
+            artifacts/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
