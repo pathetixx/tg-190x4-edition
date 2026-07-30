@@ -1,0 +1,148 @@
+name: Windows x64 Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - integration/tdesktop-7.0.6
+    paths:
+      - '.github/workflows/windows-x64.yml'
+      - 'integration/**'
+      - 'scripts/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ayugram-windows-x64-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build AyuGram 7.0.6
+    runs-on: windows-2022
+    timeout-minutes: 360
+
+    env:
+      PYTHONUTF8: '1'
+      TDESKTOP_API_ID: '2040'
+      TDESKTOP_API_HASH: 'b18441a1ff607e10a989891a5462e627'
+
+    steps:
+      - name: Checkout integration repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Configure Git for Telegram source
+        shell: pwsh
+        run: |
+          git config --global core.longpaths true
+          git config --global advice.detachedHead false
+          Get-PSDrive -Name C | Format-List
+
+      - name: Clone pinned AyuGram source and submodules
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $lock = Get-Content integration/source-lock.json -Raw | ConvertFrom-Json
+          git clone --filter=blob:none $lock.repository source
+          if ($LASTEXITCODE -ne 0) { throw 'Source clone failed.' }
+          git -C source checkout --detach $lock.commit
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned source checkout failed.' }
+          git -C source submodule sync --recursive
+          if ($LASTEXITCODE -ne 0) { throw 'Submodule sync failed.' }
+          git -C source submodule update --init --recursive --jobs 4
+          if ($LASTEXITCODE -ne 0) { throw 'Submodule checkout failed.' }
+          $actual = (git -C source rev-parse HEAD).Trim()
+          if ($actual -ne $lock.commit) { throw "Wrong source revision: $actual" }
+
+      - name: Apply AyuGram hardening
+        shell: pwsh
+        run: |
+          ./scripts/apply-hardening.ps1 -SourceRoot ./source
+          ./scripts/verify-source.ps1 -SourceRoot ./source
+          git -C source diff --check
+          if ($LASTEXITCODE -ne 0) { throw 'Patched source contains whitespace errors.' }
+          git -C source diff --stat
+
+      - name: Install Inno Setup when missing
+        shell: pwsh
+        run: |
+          $paths = @(
+            (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'),
+            (Join-Path $env:ProgramFiles 'Inno Setup 6\ISCC.exe')
+          )
+          if (-not ($paths | Where-Object { Test-Path -LiteralPath $_ })) {
+            choco install innosetup --no-progress -y
+            if ($LASTEXITCODE -ne 0) { throw 'Inno Setup installation failed.' }
+          }
+
+      - name: Prepare dependencies, configure and build Release
+        shell: cmd
+        run: |
+          @echo on
+          set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+          if not exist "%VSWHERE%" exit /b 10
+          for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_PATH=%%i"
+          if "%VS_PATH%"=="" exit /b 11
+          call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
+          if errorlevel 1 exit /b %ERRORLEVEL%
+          cd source
+          call Telegram\build\prepare\win.bat silent
+          if errorlevel 1 exit /b %ERRORLEVEL%
+          call Telegram\configure.bat x64 -D TDESKTOP_API_ID=%TDESKTOP_API_ID% -D TDESKTOP_API_HASH=%TDESKTOP_API_HASH% -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON
+          if errorlevel 1 exit /b %ERRORLEVEL%
+          cmake --build out --config Release --target Telegram --parallel 2
+          if errorlevel 1 exit /b %ERRORLEVEL%
+
+      - name: Validate executable and smoke launch
+        shell: pwsh
+        run: |
+          $lock = Get-Content integration/source-lock.json -Raw | ConvertFrom-Json
+          ./scripts/validate-artifacts.ps1 `
+            -ReleaseDir ./source/out/Release `
+            -Version $lock.telegramDesktopVersion `
+            -OutputDir ./dist/portable
+
+      - name: Package unsigned installer
+        shell: pwsh
+        run: |
+          $lock = Get-Content integration/source-lock.json -Raw | ConvertFrom-Json
+          ./scripts/package-installer.ps1 `
+            -SourceRoot ./source `
+            -ReleaseDir ./source/out/Release `
+            -Version $lock.telegramDesktopVersion `
+            -OutputDir ./dist/installer
+
+      - name: Create portable archive
+        shell: pwsh
+        run: |
+          $lock = Get-Content integration/source-lock.json -Raw | ConvertFrom-Json
+          $archive = "./dist/AyuGram-$($lock.telegramDesktopVersion)-win-x64-portable.zip"
+          Compress-Archive -Path ./dist/portable/* -DestinationPath $archive -CompressionLevel Optimal -Force
+          $hash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          Set-Content -LiteralPath "$archive.sha256" -Value "$hash  $([IO.Path]::GetFileName($archive))" -Encoding ascii
+          Write-Host "Portable archive SHA-256: $hash"
+
+      - name: Upload executable and portable package
+        uses: actions/upload-artifact@v4
+        with:
+          name: AyuGram-7.0.6-windows-x64-portable
+          path: |
+            dist/portable/**
+            dist/AyuGram-7.0.6-win-x64-portable.zip
+            dist/AyuGram-7.0.6-win-x64-portable.zip.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: AyuGram-7.0.6-windows-x64-installer
+          path: dist/installer/**
+          if-no-files-found: error
+          retention-days: 14
