@@ -31,24 +31,29 @@ if "!VS_PATH!"=="" (
 echo Found Visual Studio 2022 at: !VS_PATH!
 
 :: 2. Load x64 Native Tools Environment
+set "VSDEV_CMD=!VS_PATH!\Common7\Tools\VsDevCmd.bat"
 set "VCVARS=!VS_PATH!\VC\Auxiliary\Build\vcvars64.bat"
-if not exist "!VCVARS!" (
-    set "VCVARS=!VS_PATH!\VC\Auxiliary\Build\vcvarsall.bat"
-    set "VCVARS_ARGS=x64"
-)
 
-if not exist "!VCVARS!" (
-    echo [ERROR] Could not find vcvars64.bat or vcvarsall.bat in Visual Studio installation.
+echo Loading VS Developer Environment...
+if exist "!VSDEV_CMD!" (
+    call "!VSDEV_CMD!" -arch=x64 -host_arch=x64
+) else if exist "!VCVARS!" (
+    call "!VCVARS!"
+) else (
+    set "VCVARS=!VS_PATH!\VC\Auxiliary\Build\vcvarsall.bat"
+    if not exist "!VCVARS!" (
+        echo [ERROR] Could not find VsDevCmd.bat, vcvars64.bat or vcvarsall.bat.
+        pause
+        exit /b 1
+    )
+    call "!VCVARS!" x64
+)
+if errorlevel 1 (
+    echo [ERROR] Failed to load the Visual Studio developer environment.
     pause
     exit /b 1
 )
-
-echo Loading VS Developer Environment...
-if "!VCVARS_ARGS!"=="" (
-    call "!VCVARS!"
-) else (
-    call "!VCVARS!" !VCVARS_ARGS!
-)
+set "Platform=x64"
 
 :: 3. Find Python and add to PATH if not already present
 where python >nul 2>&1
