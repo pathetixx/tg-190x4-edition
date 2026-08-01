@@ -123,20 +123,34 @@ if (& git show-ref --verify --quiet "refs/heads/$syncBranch") {
 }
 
 Invoke-Git @("switch", "-c", $syncBranch) | Out-Host
-$mergeOutput = & git merge --no-ff --no-edit --no-commit $target 2>&1
-if ($LASTEXITCODE -ne 0) {
+$previousErrorAction = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+try {
+    $mergeOutput = & git merge --no-ff --no-edit --no-commit $target 2>&1
+    $mergeExitCode = $LASTEXITCODE
+} finally {
+    $ErrorActionPreference = $previousErrorAction
+}
+if ($mergeExitCode -ne 0) {
     $conflicts = & git diff --name-only --diff-filter=U
-    & git merge --abort 2>&1 | Out-Null
-    & git switch $currentBranch 2>&1 | Out-Null
-    & git branch -D $syncBranch 2>&1 | Out-Null
+    Invoke-Git @("merge", "--abort") | Out-Null
+    Invoke-Git @("switch", $currentBranch) | Out-Null
+    Invoke-Git @("branch", "-D", $syncBranch) | Out-Null
     throw "Upstream merge has conflicts in: $($conflicts -join ', ')"
 }
 
-$verify = & python tools/verify_private_fork.py 2>&1
-if ($LASTEXITCODE -ne 0) {
-    & git merge --abort 2>&1 | Out-Null
-    & git switch $currentBranch 2>&1 | Out-Null
-    & git branch -D $syncBranch 2>&1 | Out-Null
+$previousErrorAction = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+try {
+    $verify = & python tools/verify_private_fork.py 2>&1
+    $verifyExitCode = $LASTEXITCODE
+} finally {
+    $ErrorActionPreference = $previousErrorAction
+}
+if ($verifyExitCode -ne 0) {
+    Invoke-Git @("merge", "--abort") | Out-Null
+    Invoke-Git @("switch", $currentBranch) | Out-Null
+    Invoke-Git @("branch", "-D", $syncBranch) | Out-Null
     throw "Fork invariant verification failed:`n$($verify -join "`n")"
 }
 
