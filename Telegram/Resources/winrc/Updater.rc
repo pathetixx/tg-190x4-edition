@@ -51,11 +51,11 @@ BEGIN
     BEGIN
         BLOCK "040904b0"
         BEGIN
-            VALUE "CompanyName", "Telegram FZ-LLC"
-            VALUE "FileDescription", "Telegram Desktop Updater"
+            VALUE "CompanyName", "AyuGram Desktop contributors"
+            VALUE "FileDescription", "AyuGram Desktop Updater"
             VALUE "FileVersion", "7.0.6.0"
-            VALUE "LegalCopyright", "Copyright (C) 2014-2026"
-            VALUE "ProductName", "Telegram Desktop"
+            VALUE "LegalCopyright", "Copyright (C) 2014-2026 AyuGram Desktop contributors"
+            VALUE "ProductName", "AyuGram Desktop"
             VALUE "ProductVersion", "7.0.6.0"
         END
     END

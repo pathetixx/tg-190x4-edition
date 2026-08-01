@@ -1,83 +1,30 @@
 # Build instructions for Windows 64-bit
 
-- [Prepare folder](#prepare-folder)
-- [Install third party software](#install-third-party-software)
-- [Clone source code and prepare libraries](#clone-source-code-and-prepare-libraries)
-- [Build the project](#build-the-project)
+The build uses Visual Studio 2022 and the Windows 11 SDK. Keep the dependency folders outside the repository, for example `D:\TBuild\Libraries` and `D:\TBuild\ThirdParty`.
 
-## Prepare folder
+Install Python and Git, open an x64 Visual Studio developer command prompt, then prepare the dependencies once:
 
-The build is done in **Visual Studio 2022** with **10.0.26100.0** SDK version.
-
-Choose an empty folder for the future build, for example **D:\\TBuild**. It will be named ***BuildPath*** in the rest of this document. Create two folders there, ***BuildPath*\\ThirdParty** and ***BuildPath*\\Libraries**.
-
-All commands (if not stated otherwise) will be launched from **x64 Native Tools Command Prompt for VS 2022.bat** (should be in **Start Menu > Visual Studio 2022** menu folder). Pay attention not to use any other Command Prompt.
-
-## Install third party software
-
-* Download **Python 3.10** installer from [https://www.python.org/downloads/](https://www.python.org/downloads/) and install it with adding to PATH.
-* Download **Git** installer from [https://git-scm.com/download/win](https://git-scm.com/download/win) and install it.
-
-## Clone source code and prepare libraries
-
-Open **x64 Native Tools Command Prompt for VS 2022.bat**, go to ***BuildPath*** and run
-
-    git clone --recursive https://github.com/AyuGram/AyuGramDesktop.git tdesktop
+    git clone --recursive https://github.com/pathetixx/AyuGramDesktop.git tdesktop
     tdesktop\Telegram\build\prepare\win.bat
 
-You may encounter an error saying that your IP is not allowed - simply turn on VPN.
+The preparation script uses cache keys. Re-running it after the first successful preparation should not rebuild unchanged dependencies.
 
 ## Build the project
 
-Go to ***BuildPath*\\tdesktop\\Telegram** and run
+From the repository root, provide your API credentials and run the Release builder:
 
-    configure.bat x64 -D TDESKTOP_API_ID=2040 -D TDESKTOP_API_HASH=b18441a1ff607e10a989891a5462e627
+    set TDESKTOP_API_ID=your_api_id
+    set TDESKTOP_API_HASH=your_api_hash
+    set AYUGRAM_BUILD_PARALLEL=4
+    set AYUGRAM_ENABLE_AUTOUPDATE=OFF
+    call build_ayugram.bat
 
-* Open ***BuildPath*\\tdesktop\\out\\Telegram.slnx** in Visual Studio 2022
-* Select Telegram project and press Build > Build Telegram (Debug and Release configurations)
-* The result AyuGram.exe will be located in **D:\TBuild\tdesktop\out\Debug** (and **Release**)
+The result is `out\Release\AyuGram.exe`. Keep `out` between builds so CMake can reuse object files. Remove it only when a genuinely clean build is required. Normal development uses Release only; Debug is intentionally not part of the regular builder because it creates a large second set of intermediate files.
 
-If you encounter issue like `error C1090: PDB API call failed, error code '12'` on Release build, apply the following patch in `tdesktop/cmake` folder (via pwsh or manually):
+Auto-update is intentionally fail-closed. Leave `AYUGRAM_ENABLE_AUTOUPDATE=OFF` until the fork has its own signed update channel. When it is ready, set `AYUGRAM_UPDATE_PREFIX` to a URL ending in `/`; the builder also checks that the legacy endpoint and official signing key have been replaced.
 
-```diff
-@'
-diff --git a/options_win.cmake b/options_win.cmake
-index c2d66cf..ccceb53 100644
---- a/options_win.cmake
-+++ b/options_win.cmake
-@@ -32,6 +32,7 @@ if (MSVC)
-       /utf-8
-       /W4
-       /MP     # Enable multi process build.
-+        /FS
-       /EHsc   # Catch C++ exceptions only, extern C functions never throw a C++ exception.
-       /w15038 # wrong initialization order
-       /w14265 # class has virtual functions, but destructor is not virtual
-@@ -64,7 +65,7 @@ if (MSVC)
-   INTERFACE
-       $<$<CONFIG:Debug>:/NODEFAULTLIB:LIBCMT>
-       $<$<AND:$<CONFIG:Debug>,$<BOOL:${build_win64}>>:/DEBUG:FASTLINK>
--        $<$<NOT:$<AND:$<CONFIG:Debug>,$<BOOL:${build_win64}>>>:$<IF:$<STREQUAL:$<GENEX_EVAL:
-$<TARGET_PROPERTY:MSVC_DEBUG_INFORMATION_FORMAT>>,ProgramDatabase>,/DEBUG,/DEBUG:NONE>>
-+        $<$<NOT:$<AND:$<CONFIG:Debug>,$<BOOL:${build_win64}>>>:$<IF:$<BOOL:$<GENEX_EVAL:
-$<TARGET_PROPERTY:MSVC_DEBUG_INFORMATION_FORMAT>>>,/DEBUG,/DEBUG:NONE>>
-       $<$<NOT:$<CONFIG:Debug>>:/OPT:REF>
-       /INCREMENTAL:NO
-       /DEPENDENTLOADFLAG:0x800
-diff --git a/variables.cmake b/variables.cmake
-index d6ac6c5..b2f492a 100644
---- a/variables.cmake
-+++ b/variables.cmake
-@@ -21,7 +21,9 @@ if (DESKTOP_APP_SPECIAL_TARGET STREQUAL ""
-endif()
+To package an already built Release without compiling again, install Inno Setup 6 and run:
 
-set(CMAKE_CXX_SCAN_FOR_MODULES OFF CACHE BOOL "")
--set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "ProgramDatabase" CACHE STRING "")
-+set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT
-+    "$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>$<$<CONFIG:Release,MinSizeRel>:Embedded>"
-+    CACHE STRING "" FORCE)
-set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>" CACHE STRING "")
-option(DESKTOP_APP_TEST_APPS "Build test apps, development only." OFF)
-option(DESKTOP_APP_LOTTIE_DISABLE_RECOLORING "Disable recoloring of lottie animations." OFF)
-'@ | git -C cmake apply -
-```
+    powershell -ExecutionPolicy Bypass -File scripts\package_windows.ps1
+
+The package script creates an installer, a portable ZIP, and SHA-256 checksums under `artifacts`.

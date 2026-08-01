@@ -2491,10 +2491,12 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/Telegram PREFIX Resources FILES ${
 
 target_include_directories(Telegram PRIVATE ${src_loc})
 
+set(AYUGRAM_UPDATE_PREFIX "" CACHE STRING "AyuGram auto-update endpoint prefix.")
 target_compile_definitions(Telegram
 PRIVATE
     TDESKTOP_API_ID=${TDESKTOP_API_ID}
     TDESKTOP_API_HASH=${TDESKTOP_API_HASH}
+    AYUGRAM_UPDATE_PREFIX="${AYUGRAM_UPDATE_PREFIX}"
     G_LOG_DOMAIN="Telegram"
     U_STATIC_IMPLEMENTATION=1 # AyuGram: do not use __declspec(dllimport) when including icu headers
 )

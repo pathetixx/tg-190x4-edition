@@ -1,40 +1,53 @@
 @echo off
-setlocal enabledelayedexpansion
+setlocal EnableExtensions EnableDelayedExpansion
 
 echo ==================================================
-echo AyuGram Desktop Auto-Builder
+echo AyuGram Desktop Builder
 echo ==================================================
 
-:: 1. Find Visual Studio 2022 using vswhere
-set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
-if not exist "!VSWHERE!" (
-    set "VSWHERE=%ProgramFiles%\Microsoft Visual Studio\Installer\vswhere.exe"
+if not defined TDESKTOP_API_ID (
+    echo [ERROR] TDESKTOP_API_ID is not set.
+    exit /b 2
+)
+if not defined TDESKTOP_API_HASH (
+    echo [ERROR] TDESKTOP_API_HASH is not set.
+    exit /b 2
 )
 
+set "BUILD_PARALLEL=!AYUGRAM_BUILD_PARALLEL!"
+if "!BUILD_PARALLEL!"=="" set "BUILD_PARALLEL=4"
+set "ENABLE_AUTOUPDATE=!AYUGRAM_ENABLE_AUTOUPDATE!"
+if "!ENABLE_AUTOUPDATE!"=="" set "ENABLE_AUTOUPDATE=OFF"
+
+if /I not "!ENABLE_AUTOUPDATE!"=="ON" if /I not "!ENABLE_AUTOUPDATE!"=="OFF" (
+    echo [ERROR] AYUGRAM_ENABLE_AUTOUPDATE must be ON or OFF.
+    exit /b 2
+)
+
+set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+if not exist "!VSWHERE!" set "VSWHERE=%ProgramFiles%\Microsoft Visual Studio\Installer\vswhere.exe"
 if not exist "!VSWHERE!" (
-    echo [ERROR] Could not find vswhere.exe. Please ensure Visual Studio 2022 is installed.
-    pause
+    echo [ERROR] Could not find vswhere.exe.
     exit /b 1
 )
 
-:: Find installation path
-for /f "usebackq tokens=*" %%i in (`"!VSWHERE!" -version [17.0^,18.0^) -property installationPath`) do (
-    set "VS_PATH=%%i"
+for /f "usebackq tokens=*" %%i in (`"!VSWHERE!" -version [17.0^,18.0^) -property installationPath`) do set "VS_PATH=%%i"
+if "!VS_PATH!"=="" (
+    for %%p in (
+        "%ProgramFiles(x86)%\Microsoft Visual Studio\2022\BuildTools"
+        "%ProgramFiles%\Microsoft Visual Studio\2022\BuildTools"
+    ) do (
+        if "!VS_PATH!"=="" if exist "%%~p\Common7\Tools\VsDevCmd.bat" set "VS_PATH=%%~p"
+    )
 )
-
 if "!VS_PATH!"=="" (
     echo [ERROR] Visual Studio 2022 installation path not found.
-    pause
     exit /b 1
 )
 
-echo Found Visual Studio 2022 at: !VS_PATH!
-
-:: 2. Load x64 Native Tools Environment
 set "VSDEV_CMD=!VS_PATH!\Common7\Tools\VsDevCmd.bat"
 set "VCVARS=!VS_PATH!\VC\Auxiliary\Build\vcvars64.bat"
-
-echo Loading VS Developer Environment...
+echo Loading Visual Studio developer environment...
 if exist "!VSDEV_CMD!" (
     call "!VSDEV_CMD!" -arch=x64 -host_arch=x64
 ) else if exist "!VCVARS!" (
@@ -42,74 +55,82 @@ if exist "!VSDEV_CMD!" (
 ) else (
     set "VCVARS=!VS_PATH!\VC\Auxiliary\Build\vcvarsall.bat"
     if not exist "!VCVARS!" (
-        echo [ERROR] Could not find VsDevCmd.bat, vcvars64.bat or vcvarsall.bat.
-        pause
+        echo [ERROR] Could not find a Visual Studio developer environment script.
         exit /b 1
     )
     call "!VCVARS!" x64
 )
 if errorlevel 1 (
     echo [ERROR] Failed to load the Visual Studio developer environment.
-    pause
     exit /b 1
 )
 set "Platform=x64"
 
-:: 3. Find Python and add to PATH if not already present
 where python >nul 2>&1
-if %ERRORLEVEL% neq 0 (
-    echo Python not found in system PATH. Searching standard folders...
+if errorlevel 1 (
     for /d %%d in ("%LocalAppData%\Programs\Python\Python*") do (
-        if exist "%%d\python.exe" (
-            set "PATH=%%d;%%d\Scripts;!PATH!"
-            echo Added Python to build PATH: %%d
-        )
+        if exist "%%d\python.exe" set "PATH=%%d;%%d\Scripts;!PATH!"
     )
 )
-
-:: Re-verify Python presence
 where python >nul 2>&1
-if %ERRORLEVEL% neq 0 (
-    echo [ERROR] Python not found. Please install Python and add it to PATH.
-    pause
+if errorlevel 1 (
+    echo [ERROR] Python was not found.
     exit /b 1
 )
 
-:: 4. Run Win.bat dependency preparation in silent mode
-echo ==================================================
-echo Preparing dependencies (silent mode)...
-echo ==================================================
-call Telegram\build\prepare\win.bat silent
-if %ERRORLEVEL% neq 0 (
-    echo [ERROR] Dependency preparation failed.
-    pause
-    exit /b %ERRORLEVEL%
+if not defined AYUGRAM_SKIP_PREPARE (
+    echo Preparing dependencies using the existing cache...
+    call Telegram\build\prepare\win.bat silent
+    if errorlevel 1 (
+        echo [ERROR] Dependency preparation failed.
+        exit /b 1
+    )
 )
 
-:: 5. Configure project
-echo ==================================================
+set "UPDATE_DEFINE=-DDESKTOP_APP_DISABLE_AUTOUPDATE=ON"
+if /I "!ENABLE_AUTOUPDATE!"=="ON" (
+    if not defined AYUGRAM_UPDATE_PREFIX (
+        echo [ERROR] AYUGRAM_UPDATE_PREFIX is required when auto-update is enabled.
+        exit /b 2
+    )
+    if "!AYUGRAM_UPDATE_PREFIX:~-1!" neq "/" (
+        echo [ERROR] AYUGRAM_UPDATE_PREFIX must end with a slash.
+        exit /b 2
+    )
+    call python tools\verify_private_fork.py --require-autoupdate
+    if errorlevel 1 (
+        echo [ERROR] Auto-update source verification failed.
+        exit /b 2
+    )
+    set "UPDATE_DEFINE=-DDESKTOP_APP_DISABLE_AUTOUPDATE=OFF -DAYUGRAM_UPDATE_PREFIX=!AYUGRAM_UPDATE_PREFIX!"
+)
+
 echo Configuring AyuGram...
-echo ==================================================
-call Telegram\configure.bat x64 -D TDESKTOP_API_ID=2040 -D TDESKTOP_API_HASH=b18441a1ff607e10a989891a5462e627
-if %ERRORLEVEL% neq 0 (
+call Telegram\configure.bat x64 -DTDESKTOP_API_ID=!TDESKTOP_API_ID! -DTDESKTOP_API_HASH=!TDESKTOP_API_HASH! !UPDATE_DEFINE!
+if errorlevel 1 (
     echo [ERROR] Configuration failed.
-    pause
-    exit /b %ERRORLEVEL%
+    exit /b 1
 )
 
-:: 6. Build project
-echo ==================================================
-echo Building AyuGram (Release)...
-echo ==================================================
-cmake --build out --config Release
-if %ERRORLEVEL% neq 0 (
+echo Building Release with !BUILD_PARALLEL! parallel build slots...
+cmake --build out --config Release --target Telegram --parallel !BUILD_PARALLEL!
+if errorlevel 1 (
     echo [ERROR] Build failed.
-    pause
-    exit /b %ERRORLEVEL%
+    exit /b 1
+)
+
+if not exist "out\Release\AyuGram.exe" (
+    echo [ERROR] Build finished, but out\Release\AyuGram.exe was not produced.
+    exit /b 3
+)
+if /I "!ENABLE_AUTOUPDATE!"=="ON" if not exist "out\Release\Updater.exe" (
+    echo [ERROR] Auto-update was enabled, but Updater.exe was not produced.
+    exit /b 3
 )
 
 echo ==================================================
-echo AyuGram compiled successfully!
-echo The executable is located at: out\Release\AyuGram.exe
+echo AyuGram compiled successfully.
+echo Executable: out\Release\AyuGram.exe
+echo Auto-update: !ENABLE_AUTOUPDATE!
 echo ==================================================
-pause
+exit /b 0

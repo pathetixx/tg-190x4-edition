@@ -1,0 +1,6 @@
+{
+  "remote": "upstream",
+  "repository": "https://github.com/telegramdesktop/tdesktop.git",
+  "integrationRef": "dev",
+  "syncBranchPrefix": "sync/upstream"
+}

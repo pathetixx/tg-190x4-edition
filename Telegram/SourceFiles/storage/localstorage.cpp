@@ -33,6 +33,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include <QtCore/QDirIterator>
 
+#ifndef AYUGRAM_UPDATE_PREFIX
+#define AYUGRAM_UPDATE_PREFIX ""
+#endif
+
 #ifndef Q_OS_WIN
 #include <unistd.h>
 #endif // Q_OS_WIN
@@ -560,7 +564,7 @@ const QString &readAutoupdatePrefixRaw() {
 			return AutoupdatePrefix(value);
 		}
 	}
-	return AutoupdatePrefix("https://update.ayugram.one/");
+	return AutoupdatePrefix(QString::fromUtf8(AYUGRAM_UPDATE_PREFIX));
 }
 
 void writeAutoupdatePrefix(const QString &prefix) {
@@ -569,7 +573,10 @@ void writeAutoupdatePrefix(const QString &prefix) {
 	}
 
 	const auto current = readAutoupdatePrefixRaw();
-    const auto fixedPrefix = QString::fromStdString("https://update.ayugram.one/");
+	const auto fixedPrefix = QString::fromUtf8(AYUGRAM_UPDATE_PREFIX);
+	if (fixedPrefix.isEmpty()) {
+		return;
+	}
 	if (current != fixedPrefix) {
 		AutoupdatePrefix(fixedPrefix);
 		QFile f(autoupdatePrefixFile());
