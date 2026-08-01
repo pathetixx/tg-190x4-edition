@@ -2053,6 +2053,8 @@ PRIVATE
     test/test_launch_fuse.h
     test/test_log.cpp
     test/test_log.h
+    test/test_messages.cpp
+    test/test_messages.h
     test/test_open_handoff.cpp
     test/test_open_handoff.h
     test/test_runner.cpp
