@@ -9014,7 +9014,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_MutualContactInfo" = "This contact is mutual.";
 "ayu_SessionInfoOfficialApp" = "Official app";
 "ayu_SettingsWatermark" = "AyuGram is developed and maintained by Radolyn Labs.";
-"ayu_SettingsDescription" = "Telegram Desktop fork focused on customization and ToS-breaking features.";
+"ayu_SettingsDescription" = "Telegram Desktop fork kept on current releases, with customization and ToS-breaking features.";
 "ayu_ConfirmationSticker" = "Do you want to send this sticker?";
 "ayu_ConfirmationGIF" = "Do you want to send this GIF?";
 "ayu_ConfirmationVoice" = "Do you want to send this voice message?";

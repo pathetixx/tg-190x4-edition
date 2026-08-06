@@ -75,7 +75,7 @@ MessagePreview::MessagePreview(
 
 	const auto ayugramUser = HistoryView::GenerateUser(
 		history,
-		u"AyuGram Releases"_q);
+		u"TG 190x4 EDITION"_q);
 	const auto messageItem = history->addNewLocalMessage({
 		.id = history->nextNonHistoryEntryId(),
 		.flags = (MessageFlag::FakeHistoryItem
