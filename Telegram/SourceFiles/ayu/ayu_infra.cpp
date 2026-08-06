@@ -11,16 +11,48 @@
 #include "ayu/ayu_worker.h"
 #include "ayu/data/ayu_database.h"
 #include "ayu/ui/ayu_logo.h"
+#include "core/application.h"
+#include "core/core_settings.h"
 #include "features/translator/ayu_translator.h"
+#include "lang/lang_cloud_manager.h"
 #include "lang/lang_instance.h"
 #include "ui/chat/chat_style_radius.h"
 #include "utils/rc_manager.h"
+#include "window/themes/window_theme.h"
+
+#include <QDir>
+#include <QFile>
 
 #ifdef Q_OS_WIN
 #include "ayu/utils/windows_utils.h"
 #endif
 
 namespace AyuInfra {
+namespace {
+
+bool ApplyingDefaults = false;
+
+[[nodiscard]] QString defaultLanguageId() {
+	return u"190x4"_q;
+}
+
+[[nodiscard]] QString defaultThemePath() {
+	return u":/gui/190x4.tdesktop-theme"_q;
+}
+
+[[nodiscard]] QString defaultsMarkerPath() {
+	return cWorkingDir() + u"tdata/ayu/190x4_defaults"_q;
+}
+
+void writeDefaultsMarker() {
+	QDir().mkpath(cWorkingDir() + u"tdata/ayu"_q);
+	auto marker = QFile(defaultsMarkerPath());
+	if (marker.open(QIODevice::WriteOnly)) {
+		marker.close();
+	}
+}
+
+} // namespace
 
 void initLang() {
 	QString id = Lang::GetInstance().id();
@@ -61,6 +93,23 @@ void initIcon() {
 #endif
 }
 
+void initDefaults() {
+	ApplyingDefaults = !QFile::exists(defaultsMarkerPath());
+	if (!ApplyingDefaults) {
+		return;
+	}
+	Lang::CurrentCloudManager().switchToLanguage(defaultLanguageId());
+}
+
+void applyDefaultTheme() {
+	if (!ApplyingDefaults) {
+		return;
+	}
+	ApplyingDefaults = false;
+	Window::Theme::ApplyDefaultWithPath(defaultThemePath());
+	writeDefaultsMarker();
+}
+
 void init() {
 	initLang();
 	initDatabase();
@@ -69,6 +118,7 @@ void init() {
 	initWorker();
 	initRCManager();
 	initTranslator();
+	initDefaults();
 }
 
 }

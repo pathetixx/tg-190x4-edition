@@ -9,5 +9,6 @@
 namespace AyuInfra {
 
 void init();
+void applyDefaultTheme();
 
 }
