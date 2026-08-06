@@ -4,6 +4,15 @@
 
 [ English  |   [Русский](README-RU.md) ]
 
+> **This is a personal fork.**
+>
+> Upstream AyuGram tracks Telegram Desktop slowly, so this fork merges current
+> Telegram releases on top of the AyuGram features. It targets **Windows x64**
+> only and builds are published under
+> [Releases](https://github.com/pathetixx/AyuGramDesktop/releases).
+>
+> Builds update themselves; update packages are signed and verified by the client.
+
 ## Features
 
 - Full ghost mode (flexible)
