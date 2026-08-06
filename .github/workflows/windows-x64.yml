@@ -85,8 +85,8 @@ jobs:
       - name: Verify executable metadata
         shell: pwsh
         run: |
-          $exe = Join-Path $env:GITHUB_WORKSPACE 'out\Release\AyuGram.exe'
-          if (-not (Test-Path $exe)) { throw 'AyuGram.exe was not produced.' }
+          $exe = Join-Path $env:GITHUB_WORKSPACE 'out\Release\TG190x4.exe'
+          if (-not (Test-Path $exe)) { throw 'TG190x4.exe was not produced.' }
 
           $version = (Get-Item $exe).VersionInfo
           Write-Host "ProductName=$($version.ProductName)"
@@ -133,8 +133,8 @@ jobs:
         with:
           name: AyuGram-Windows-x64-${{ env.AYUGRAM_VERSION }}
           path: |
-            artifacts/AyuGram-portable-x64-*.zip
-            artifacts/AyuGram-setup-x64-*.exe
+            artifacts/TG190x4-portable-x64-*.zip
+            artifacts/TG190x4-setup-x64-*.exe
             artifacts/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 14

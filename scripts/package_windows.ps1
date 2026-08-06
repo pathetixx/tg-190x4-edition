@@ -24,7 +24,7 @@ if (-not $versionLine -or $versionLine -notmatch '^AppVersionStr\s+([^\s]+)$') {
 }
 $version = $Matches[1]
 
-$exePath = Join-Path $ReleasePath "AyuGram.exe"
+$exePath = Join-Path $ReleasePath "TG190x4.exe"
 $updaterPath = Join-Path $ReleasePath "Updater.exe"
 if (-not (Test-Path -LiteralPath $exePath)) {
     throw "Missing $exePath"
@@ -77,16 +77,16 @@ if (-not (Test-Path -LiteralPath $installerPath)) {
     throw "Installer was not produced: $installerPath"
 }
 
-$portableZip = Join-Path $OutputPath "AyuGram-portable-x64-$version.zip"
+$portableZip = Join-Path $OutputPath "TG190x4-portable-x64-$version.zip"
 if (Test-Path -LiteralPath $portableZip) {
     Remove-Item -LiteralPath $portableZip -Force
 }
 Compress-Archive -Path (Join-Path $portableRoot "*") -DestinationPath $portableZip -CompressionLevel Optimal
-$installerArtifact = Join-Path $OutputPath "AyuGram-setup-x64-$version.exe"
+$installerArtifact = Join-Path $OutputPath "TG190x4-setup-x64-$version.exe"
 Copy-Item -LiteralPath $installerPath -Destination $installerArtifact -Force
 
 $hashFiles = Get-ChildItem -LiteralPath $OutputPath -File |
-    Where-Object { $_.Name -match '^AyuGram-(portable|setup)-x64-.*\.(zip|exe)$' }
+    Where-Object { $_.Name -match '^TG190x4-(portable|setup)-x64-.*\.(zip|exe)$' }
 $hashLines = foreach ($file in $hashFiles) {
     $hash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash
     "$hash  $($file.Name)"

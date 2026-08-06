@@ -21,7 +21,7 @@ if ([string]::IsNullOrWhiteSpace($OutputPath)) {
     $OutputPath = Join-Path $repoRoot "artifacts\updates"
 }
 
-$appExe = Join-Path $ReleasePath "AyuGram.exe"
+$appExe = Join-Path $ReleasePath "TG190x4.exe"
 $updaterExe = Join-Path $ReleasePath "Updater.exe"
 $packerExe = Join-Path $ReleasePath "Packer.exe"
 
@@ -43,7 +43,7 @@ $versionString = $stringMatch.Groups[1].Value
 
 $exeVersion = (Get-Item -LiteralPath $appExe).VersionInfo.FileVersion
 if (-not $exeVersion.StartsWith($versionString)) {
-    throw "AyuGram.exe reports $exeVersion but the tree says $versionString. Rebuild before publishing."
+    throw "TG190x4.exe reports $exeVersion but the tree says $versionString. Rebuild before publishing."
 }
 
 $packageName = "tx64upd$versionNumber"

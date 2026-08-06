@@ -2,7 +2,7 @@
 setlocal EnableExtensions EnableDelayedExpansion
 
 echo ==================================================
-echo AyuGram Desktop Builder
+echo TG 190x4 EDITION Builder
 echo ==================================================
 
 if not defined TDESKTOP_API_ID (
@@ -106,7 +106,7 @@ if /I "!ENABLE_AUTOUPDATE!"=="ON" (
     set "UPDATE_DEFINE=-DDESKTOP_APP_DISABLE_AUTOUPDATE=OFF -DAYUGRAM_UPDATE_PREFIX=!AYUGRAM_UPDATE_PREFIX! -DAYUGRAM_BUILD_PACKER=ON"
 )
 
-echo Configuring AyuGram...
+echo Configuring TG 190x4 EDITION...
 call Telegram\configure.bat x64 -DTDESKTOP_API_ID=!TDESKTOP_API_ID! -DTDESKTOP_API_HASH=!TDESKTOP_API_HASH! !UPDATE_DEFINE!
 if errorlevel 1 (
     echo [ERROR] Configuration failed.
@@ -120,8 +120,8 @@ if errorlevel 1 (
     exit /b 1
 )
 
-if not exist "out\Release\AyuGram.exe" (
-    echo [ERROR] Build finished, but out\Release\AyuGram.exe was not produced.
+if not exist "out\Release\TG190x4.exe" (
+    echo [ERROR] Build finished, but out\Release\TG190x4.exe was not produced.
     exit /b 3
 )
 if /I "!ENABLE_AUTOUPDATE!"=="ON" if not exist "out\Release\Updater.exe" (
@@ -130,8 +130,8 @@ if /I "!ENABLE_AUTOUPDATE!"=="ON" if not exist "out\Release\Updater.exe" (
 )
 
 echo ==================================================
-echo AyuGram compiled successfully.
-echo Executable: out\Release\AyuGram.exe
+echo TG 190x4 EDITION compiled successfully.
+echo Executable: out\Release\TG190x4.exe
 echo Auto-update: !ENABLE_AUTOUPDATE!
 echo ==================================================
 exit /b 0

@@ -1,9 +1,9 @@
-#define MyAppShortName "AyuGram"
-#define MyAppName "AyuGram Desktop"
-#define MyAppPublisher "AyuGram Desktop contributors"
+#define MyAppShortName "TG190x4"
+#define MyAppName "TG 190x4 EDITION"
+#define MyAppPublisher "190x4"
 #define MyAppURL "https://github.com/pathetixx/AyuGramDesktop"
-#define MyAppExeName "AyuGram.exe"
-#define MyAppId "53F49750-6209-4FBF-9CA8-7A333C87D666"
+#define MyAppExeName "TG190x4.exe"
+#define MyAppId "CF1B96EB-FA03-4531-ADEC-E559A224AE85"
 #define CurrentYear GetDateTimeString('yyyy','','')
 #ifndef MyEnableAutoUpdate
 #define MyEnableAutoUpdate 0

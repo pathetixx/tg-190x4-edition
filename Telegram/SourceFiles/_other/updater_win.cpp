@@ -204,7 +204,7 @@ bool update() {
 					writeLog(L"Error: bad update, has Updater.exe! '" + tofname + L"' equal '" + updaterName + L"'");
 					delFolder();
 					return false;
-				} else if (equal(tofname, updateTo + L"AyuGram.exe") && exeName != L"AyuGram.exe") {
+				} else if (equal(tofname, updateTo + L"TG190x4.exe") && exeName != L"TG190x4.exe") {
 					wstring fullBinaryPath = updateTo + exeName;
 					writeLog(L"Target binary found: '" + tofname + L"', changing to '" + fullBinaryPath + L"'");
 					tofname = fullBinaryPath;
@@ -261,7 +261,7 @@ bool update() {
 			if (!copyResult) {
 				writeLog(L"Error: failed to copy, asking to retry..");
 				WCHAR errMsg[2048];
-				wsprintf(errMsg, L"Failed to update AyuGram :(\n%s is not accessible.", tofname.c_str());
+				wsprintf(errMsg, L"Failed to update TG 190x4 EDITION :(\n%s is not accessible.", tofname.c_str());
 				if (MessageBox(0, errMsg, L"Update error!", MB_ICONERROR | MB_RETRYCANCEL) != IDRETRY) {
 					delFolder();
 					return false;
@@ -280,7 +280,7 @@ void updateRegistry() {
 		writeLog(L"Updating registry..");
 		versionStr[versionLen / 2] = 0;
 		HKEY rkey;
-		LSTATUS status = RegOpenKeyEx(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{53F49750-6209-4FBF-9CA8-7A333C87D666}_is1", 0, KEY_QUERY_VALUE | KEY_SET_VALUE, &rkey);
+		LSTATUS status = RegOpenKeyEx(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{CF1B96EB-FA03-4531-ADEC-E559A224AE85}_is1", 0, KEY_QUERY_VALUE | KEY_SET_VALUE, &rkey);
 		if (status == ERROR_SUCCESS) {
 			writeLog(L"Checking registry install location..");
 			static const int bufSize = 4096;
@@ -307,11 +307,11 @@ void updateRegistry() {
 								SYSTEMTIME stLocalTime;
 								GetLocalTime(&stLocalTime);
 								RegSetValueEx(rkey, L"DisplayVersion", 0, REG_SZ, (const BYTE*)versionStr, ((versionLen / 2) + 1) * sizeof(WCHAR));
-								wsprintf(nameStr, L"AyuGram Desktop");
+								wsprintf(nameStr, L"TG 190x4 EDITION");
 								RegSetValueEx(rkey, L"DisplayName", 0, REG_SZ, (const BYTE*)nameStr, (wcslen(nameStr) + 1) * sizeof(WCHAR));
-								wsprintf(publisherStr, L"AyuGram Desktop contributors");
+								wsprintf(publisherStr, L"190x4");
 								RegSetValueEx(rkey, L"Publisher", 0, REG_SZ, (const BYTE*)publisherStr, (wcslen(publisherStr) + 1) * sizeof(WCHAR));
-								wsprintf(icongroupStr, L"AyuGram Desktop");
+								wsprintf(icongroupStr, L"TG 190x4 EDITION");
 								RegSetValueEx(rkey, L"Inno Setup: Icon Group", 0, REG_SZ, (const BYTE*)icongroupStr, (wcslen(icongroupStr) + 1) * sizeof(WCHAR));
 								wsprintf(dateStr, L"%04d%02d%02d", stLocalTime.wYear, stLocalTime.wMonth, stLocalTime.wDay);
 								RegSetValueEx(rkey, L"InstallDate", 0, REG_SZ, (const BYTE*)dateStr, (wcslen(dateStr) + 1) * sizeof(WCHAR));
@@ -377,14 +377,14 @@ int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE prevInstance, LPWSTR cmdPara
 				exeName = args[i];
 				for (int j = 0, l = exeName.size(); j < l; ++j) {
 					if (exeName[j] == L'/' || exeName[j] == L'\\') {
-						exeName = L"AyuGram.exe";
+						exeName = L"TG190x4.exe";
 						break;
 					}
 				}
 			}
 		}
 		if (exeName.empty()) {
-			exeName = L"AyuGram.exe";
+			exeName = L"TG190x4.exe";
 		}
 		if (needupdate) writeLog(L"Need to update!");
 		if (autostart) writeLog(L"From autostart!");
@@ -491,7 +491,7 @@ int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE prevInstance, LPWSTR cmdPara
 	return 0;
 }
 
-static const WCHAR *_programName = L"AyuGram Desktop"; // folder in APPDATA, if current path is unavailable for writing
+static const WCHAR *_programName = L"TG 190x4 EDITION"; // folder in APPDATA, if current path is unavailable for writing
 static const WCHAR *_exeName = L"Updater.exe";
 
 LPTOP_LEVEL_EXCEPTION_FILTER _oldWndExceptionFilter = 0;

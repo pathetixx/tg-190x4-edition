@@ -41,8 +41,8 @@ def main():
     updater_resource = read("Telegram/Resources/winrc/Updater.rc")
 
     required_setup = (
-        ('#define MyAppName "AyuGram Desktop"', "installer name"),
-        ('#define MyAppExeName "AyuGram.exe"', "installer executable"),
+        ('#define MyAppName "TG 190x4 EDITION"', "installer name"),
+        ('#define MyAppExeName "TG190x4.exe"', "installer executable"),
         ('{#ReleasePath}\\{#MyAppExeName}', "installer source executable"),
         ('UninstallDisplayIcon={app}\\{#MyAppExeName}', "uninstaller icon"),
     )
@@ -52,18 +52,18 @@ def main():
     if '{#ReleasePath}\\Telegram.exe' in setup:
         errors.append("Installer still packages Telegram.exe")
 
-    if 'set(output_name "AyuGram")' not in cmake:
-        errors.append("CMake output name is not AyuGram")
-    if 'VALUE "ProductName", "AyuGram Desktop"' not in app_resource:
-        errors.append("Windows application ProductName is not AyuGram Desktop")
-    if 'VALUE "FileDescription", "AyuGram Desktop"' not in app_resource:
-        errors.append("Windows application FileDescription is not AyuGram Desktop")
-    if 'VALUE "ProductName", "AyuGram Desktop"' not in updater_resource:
-        errors.append("Updater ProductName is not AyuGram Desktop")
-    if "{53F49750-6209-4FBF-9CA8-7A333C87D666}_is1" not in updater_source:
-        errors.append("Updater registry identity does not match the AyuGram installer")
-    if 'L"AyuGram Desktop"' not in updater_source:
-        errors.append("Updater fallback directory is not AyuGram Desktop")
+    if 'set(output_name "TG190x4")' not in cmake:
+        errors.append("CMake output name is not TG190x4")
+    if 'VALUE "ProductName", "TG 190x4 EDITION"' not in app_resource:
+        errors.append("Windows application ProductName is not TG 190x4 EDITION")
+    if 'VALUE "FileDescription", "TG 190x4 EDITION"' not in app_resource:
+        errors.append("Windows application FileDescription is not TG 190x4 EDITION")
+    if 'VALUE "ProductName", "TG 190x4 EDITION"' not in updater_resource:
+        errors.append("Updater ProductName is not TG 190x4 EDITION")
+    if "{CF1B96EB-FA03-4531-ADEC-E559A224AE85}_is1" not in updater_source:
+        errors.append("Updater registry identity does not match the installer")
+    if 'L"TG 190x4 EDITION"' not in updater_source:
+        errors.append("Updater fallback directory is not TG 190x4 EDITION")
     if "D1ED" in updater_source or 'L"Telegram Desktop"' in updater_source:
         errors.append("Updater still contains the Telegram installer identity")
 
