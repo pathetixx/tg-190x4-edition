@@ -27,10 +27,25 @@ The script creates a separate `sync/upstream/...` branch, enables Git rerere, ab
 
 The Windows installer is per-user and is registered by Inno Setup in the current user's installed-programs list. It installs to the existing user-data-compatible location so the built-in updater can replace files without requiring administrator rights. The portable ZIP remains a separate artifact.
 
-Auto-update is disabled by default in local and CI builds. The source tree still contains Telegram Desktop's updater implementation, but enabling it before the fork owns an update endpoint and a private signing key could install releases from the wrong channel. The intended OTA sequence is:
+Auto-update is enabled by passing `AYUGRAM_ENABLE_AUTOUPDATE=ON` together with
+`AYUGRAM_UPDATE_PREFIX` to `build_ayugram.bat`. The prefix must not end with a
+slash: the client appends `/current4` and the package path to it.
 
-1. Create a fork-owned update endpoint with stable and beta manifests.
-2. Generate a new signing key pair outside the repository and keep only the public key in source.
-3. Produce signed update payloads in a protected release job.
-4. Verify signature, version, architecture, and rollback behavior on a clean installed copy.
-5. Set `AYUGRAM_UPDATE_PREFIX` to the fork-owned endpoint, then enable `AYUGRAM_ENABLE_AUTOUPDATE=ON` only after those checks pass. The builder rejects the old endpoint or the official Telegram signing key.
+Update packages are signed with an RSA-2048 fork key. The public halves live in
+`Telegram/SourceFiles/config.h` and `Telegram/SourceFiles/_other/packer.cpp`.
+The private halves belong in `Telegram/SourceFiles/_other/packer_private.h`,
+which is ignored by git and must never be committed. Losing the private key
+means installed clients stop accepting updates and have to be replaced by hand.
+
+Publish an update from a build made with auto-update enabled:
+
+```powershell
+pwsh -File scripts/publish_update.ps1 -Publish
+```
+
+The script runs Packer over `AyuGram.exe` and `Updater.exe`, writes the
+`current4` manifest and uploads both as the latest release of the update
+channel repository. Without `-Publish` it only prepares the files locally.
+
+Clients compare the `released` number in the manifest against their own
+`AppVersion`, so an update only reaches builds with a lower version.

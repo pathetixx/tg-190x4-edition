@@ -2639,7 +2639,7 @@ if (NOT DESKTOP_APP_DISABLE_AUTOUPDATE AND NOT build_macstore AND NOT build_wins
         )
     endif()
 
-    if (DESKTOP_APP_SPECIAL_TARGET)
+    if (DESKTOP_APP_SPECIAL_TARGET OR AYUGRAM_BUILD_PACKER)
         add_executable(Packer)
         init_target(Packer)
 

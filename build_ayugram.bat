@@ -93,8 +93,9 @@ if /I "!ENABLE_AUTOUPDATE!"=="ON" (
         echo [ERROR] AYUGRAM_UPDATE_PREFIX is required when auto-update is enabled.
         exit /b 2
     )
-    if "!AYUGRAM_UPDATE_PREFIX:~-1!" neq "/" (
-        echo [ERROR] AYUGRAM_UPDATE_PREFIX must end with a slash.
+    if "!AYUGRAM_UPDATE_PREFIX:~-1!" == "/" (
+        echo [ERROR] AYUGRAM_UPDATE_PREFIX must not end with a slash.
+        echo         The client appends /current4 and the package path itself.
         exit /b 2
     )
     call python tools\verify_private_fork.py --require-autoupdate
@@ -102,7 +103,7 @@ if /I "!ENABLE_AUTOUPDATE!"=="ON" (
         echo [ERROR] Auto-update source verification failed.
         exit /b 2
     )
-    set "UPDATE_DEFINE=-DDESKTOP_APP_DISABLE_AUTOUPDATE=OFF -DAYUGRAM_UPDATE_PREFIX=!AYUGRAM_UPDATE_PREFIX!"
+    set "UPDATE_DEFINE=-DDESKTOP_APP_DISABLE_AUTOUPDATE=OFF -DAYUGRAM_UPDATE_PREFIX=!AYUGRAM_UPDATE_PREFIX! -DAYUGRAM_BUILD_PACKER=ON"
 )
 
 echo Configuring AyuGram...
