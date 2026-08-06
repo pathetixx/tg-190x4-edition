@@ -9,7 +9,7 @@
 > Upstream AyuGram tracks Telegram Desktop slowly, so this fork merges current
 > Telegram releases on top of the AyuGram features. It targets **Windows x64**
 > only and builds are published under
-> [Releases](https://github.com/pathetixx/AyuGramDesktop/releases).
+> [Releases](https://github.com/pathetixx/tg-190x4-edition/releases).
 >
 > Builds update themselves; update packages are signed and verified by the client.
 

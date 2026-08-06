@@ -4,7 +4,7 @@ The build uses Visual Studio 2022 and the Windows 11 SDK. Keep the dependency fo
 
 Install Python and Git, open an x64 Visual Studio developer command prompt, then prepare the dependencies once:
 
-    git clone --recursive https://github.com/pathetixx/AyuGramDesktop.git tdesktop
+    git clone --recursive https://github.com/pathetixx/tg-190x4-edition.git tdesktop
     tdesktop\Telegram\build\prepare\win.bat
 
 The preparation script uses cache keys. Re-running it after the first successful preparation should not rebuild unchanged dependencies.

@@ -9,7 +9,7 @@
 > Оригинальный AyuGram редко обновляет версию Telegram Desktop, поэтому
 > здесь функции AyuGram переносятся на актуальные выпуски Telegram.
 > Сборки только под **Windows x64**, выкладываются в
-> [Releases](https://github.com/pathetixx/AyuGramDesktop/releases).
+> [Releases](https://github.com/pathetixx/tg-190x4-edition/releases).
 >
 > Обновления устанавливаются автоматически, пакеты подписаны и проверяются клиентом.
 

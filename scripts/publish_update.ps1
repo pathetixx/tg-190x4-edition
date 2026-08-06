@@ -2,7 +2,7 @@
 param(
     [string]$ReleasePath = "",
     [string]$OutputPath = "",
-    [string]$Repo = "pathetixx/ayugram-updates",
+    [string]$Repo = "pathetixx/tg190x4-updates",
     [switch]$Publish
 )
 

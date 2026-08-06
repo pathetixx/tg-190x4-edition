@@ -42,11 +42,11 @@ rpl::producer<TextWithEntities> Text() {
 		lt_gpl_link,
 		rpl::single(Ui::Text::Link(
 			"GNU GPL",
-			"https://github.com/pathetixx/AyuGramDesktop/blob/main/LICENSE")),
+			"https://github.com/pathetixx/tg-190x4-edition/blob/main/LICENSE")),
 		lt_github_link,
 		rpl::single(Ui::Text::Link(
 			"GitHub",
-			"https://github.com/pathetixx/AyuGramDesktop")),
+			"https://github.com/pathetixx/tg-190x4-edition")),
 		tr::marked);
 }
 
@@ -92,7 +92,7 @@ void AboutBox(not_null<Ui::GenericBox*> box, Window::SessionController*) {
 		[box]
 		{
 			box->closeBox();
-			File::OpenUrl(u"https://github.com/pathetixx/AyuGramDesktop/releases"_q);
+			File::OpenUrl(u"https://github.com/pathetixx/tg-190x4-edition/releases"_q);
 		});
 
 	box->setWidth(st::aboutWidth);
