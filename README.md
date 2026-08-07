@@ -1,173 +1,40 @@
-# AyuGram
+# TG 190x4 EDITION
 
-![AyuGram Logo](.github/AyuGram.png) ![AyuChan](.github/AyuChan.png)
+[ English | [Русский](README-RU.md) ]
 
-[ English  |   [Русский](README-RU.md) ]
+A personal Windows build of Telegram Desktop with the AyuGram feature set on top.
 
-> **This is a personal fork.**
->
-> Upstream AyuGram tracks Telegram Desktop slowly, so this fork merges current
-> Telegram releases on top of the AyuGram features. It targets **Windows x64**
-> only and builds are published under
-> [Releases](https://github.com/pathetixx/tg-190x4-edition/releases).
->
-> Builds update themselves; update packages are signed and verified by the client.
+Upstream [AyuGram](https://github.com/AyuGram/AyuGramDesktop) updates its Telegram
+base rarely. This fork merges current Telegram Desktop releases on top of those
+features, so the client stays close to the official one while keeping the mod.
+
+## Download
+
+Grab the installer or the portable archive from
+[Releases](https://github.com/pathetixx/tg-190x4-edition/releases).
+
+- Installer needs no administrator rights
+- Builds update themselves; update packages are signed and verified by the client
+
+Windows x64 only. Other platforms are not built.
 
 ## Features
 
-- Full ghost mode (flexible)
-- Messages history
-- Anti-recall
-- Font customization
-- Streamer mode
-- Local Telegram Premium
-- Translator
-- Media preview & quick reaction on force click (macOS)
-- Enhanced appearance
+Everything AyuGram provides — ghost mode, deleted and edited message history,
+anti-recall, streamer mode, local premium, message translation and more — plus a
+bundled theme and language applied on a clean profile.
 
-And many more. Check out our [Documentation](https://docs.ayugram.one/desktop/).
+## Building
 
-<h3>
-  <details>
-    <summary>Preview</summary>
-    <table>
-      <tr>
-        <td><img src='.github/demos/demo1.png' width='268' alt='Preferences'></td>
-        <td><img src='.github/demos/demo2.png' width='268' alt='AyuGram Options'></td>
-        <td><img src='.github/demos/demo3.png' width='268' alt='Message Filters'></td>
-      </tr>
-      <tr>
-        <td><img src='.github/demos/demo4.png' width='268' alt='Appearance'></td>
-        <td><img src='.github/demos/demo5.png' width='268' alt='Chats'></td>
-      </tr>
-    </table>
-  </details>
-</h3>
-
-## Downloads
-
-### Windows
-
-#### Official
-
-You can download prebuilt Windows binary from [Releases tab](https://github.com/AyuGram/AyuGramDesktop/releases) or from
-the [Telegram channel](https://t.me/AyuGramReleases).
-
-#### Winget
-
-```bash
-winget install RadolynLabs.AyuGramDesktop
-```
-
-#### Scoop
-
-```bash
-scoop bucket add extras
-scoop install ayugram
-```
-
-#### Self-built
-
-Follow [official guide](https://github.com/AyuGram/AyuGramDesktop/blob/dev/docs/building-win-x64.md) if you want to
-build by yourself.
-
-### macOS
-
-#### Official
-
-You can download prebuilt macOS package from [Releases tab](https://github.com/AyuGram/AyuGramDesktop/releases).
-
-#### Homebrew
-
-```bash
-brew install --cask ayugram
-```
-
-### Arch Linux
-
-#### From source (recommended)
-
-Install `ayugram-desktop` from [AUR](https://aur.archlinux.org/packages/ayugram-desktop).
-
-#### Prebuilt binaries
-
-Install `ayugram-desktop-bin` from [AUR](https://aur.archlinux.org/packages/ayugram-desktop-bin).
-
-Note: these binaries aren't officially maintained by us.
-
-### NixOS
-
-#### Flake (recommended)
-
-Install `ayugram-desktop` from [ndfined-crp/ayugram-desktop](https://github.com/ndfined-crp/ayugram-desktop)
-
-#### Nixpkgs
-
-Install `ayugram-desktop` from [nixpkgs](https://search.nixos.org/packages?channel=unstable&show=ayugram-desktop)
-
-### ALT Linux
-
-[Sisyphus](https://packages.altlinux.org/en/sisyphus/srpms/ayugram-desktop/)
-
-### Gentoo Linux
-
-See [this repository](https://codeberg.org/OverLessArtem/ayugram-ebuild-gentoo) for installation manual.
-
-### Void Linux
-See [this repository](https://codeberg.org/OverLessArtem/ayugram-template-void) for installation manual.
-
-### EPM
-
-`epm play ayugram`
-
-### Fedora
-
-From [RPM Fusion](https://admin.rpmfusion.org/pkgdb/package/free/ayugram-desktop/) repository.
-
-```bash
-dnf install ayugram-desktop
-```
-
-### Any other Linux distro
-
-Flatpak: https://github.com/0FL01/AyuGramDesktop-flatpak
-
-Or follow the [official guide](https://github.com/AyuGram/AyuGramDesktop/blob/dev/docs/building-linux.md).
-
-### Remarks for Windows
-
-Make sure you have these components installed with VS Build Tools:
-
-- C++ MFC latest (x86 & x64)
-- C++ ATL latest (x86 & x64)
-- latest Windows 11 SDK
-
-## Donation
-
-Enjoy using **AyuGram**? Consider sending us a tip!
-
-[Here's available methods.](https://docs.ayugram.one/donate/)
+See [docs/building-win-x64.md](docs/building-win-x64.md). The build needs Telegram
+API credentials in `TDESKTOP_API_ID` and `TDESKTOP_API_HASH`.
 
 ## Credits
 
-### Telegram clients
+Built on [Telegram Desktop](https://github.com/telegramdesktop/tdesktop) by
+Telegram FZ-LLC and [AyuGram](https://github.com/AyuGram/AyuGramDesktop) by
+Radolyn Labs.
 
-- [Telegram Desktop](https://github.com/telegramdesktop/tdesktop)
-- [Kotatogram](https://github.com/kotatogram/kotatogram-desktop)
-- [64Gram](https://github.com/TDesktop-x64/tdesktop)
-- [Forkgram](https://github.com/forkgram/tdesktop)
+## License
 
-### Libraries used
-
-- [JSON for Modern C++](https://github.com/nlohmann/json)
-- [SQLite](https://github.com/sqlite/sqlite)
-- [sqlite_orm](https://github.com/fnc12/sqlite_orm)
-- [androidx sources](https://github.com/androidx/androidx)
-
-### Icons
-
-- [Solar Icon Set](https://www.figma.com/community/file/1166831539721848736)
-
-### Bots
-
-- [TelegramDB](https://t.me/tgdatabase) for username lookup by ID (until closing free inline mode at 2 April 2026)
+GPL-3.0, inherited from Telegram Desktop. See [LICENSE](LICENSE) and [LEGAL](LEGAL).
