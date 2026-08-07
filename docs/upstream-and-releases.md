@@ -27,8 +27,8 @@ The script creates a separate `sync/upstream/...` branch, enables Git rerere, ab
 
 The Windows installer is per-user and is registered by Inno Setup in the current user's installed-programs list. It installs to the existing user-data-compatible location so the built-in updater can replace files without requiring administrator rights. The portable ZIP remains a separate artifact.
 
-Auto-update is enabled by passing `AYUGRAM_ENABLE_AUTOUPDATE=ON` together with
-`AYUGRAM_UPDATE_PREFIX` to `build_ayugram.bat`. The prefix must not end with a
+Auto-update is enabled by passing `TG190X4_ENABLE_AUTOUPDATE=ON` together with
+`TG190X4_UPDATE_PREFIX` to `build_tg190x4.bat`. The prefix must not end with a
 slash: the client appends `/current4` and the package path to it.
 
 Update packages are signed with an RSA-2048 fork key. The public halves live in

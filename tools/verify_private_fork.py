@@ -31,7 +31,7 @@ def main():
     require_autoupdate = "--require-autoupdate" in sys.argv[1:]
     errors = []
     setup = read("Telegram/build/setup.iss")
-    build_script = read("build_ayugram.bat")
+    build_script = read("build_tg190x4.bat")
     cmake = read("Telegram/CMakeLists.txt")
     updater_source = read("Telegram/SourceFiles/_other/updater_win.cpp")
     config = read("Telegram/SourceFiles/config.h")

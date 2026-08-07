@@ -27,7 +27,7 @@ $packerExe = Join-Path $ReleasePath "Packer.exe"
 
 foreach ($required in @($appExe, $updaterExe, $packerExe)) {
     if (-not (Test-Path -LiteralPath $required)) {
-        throw "Missing $required. Build with AYUGRAM_ENABLE_AUTOUPDATE=ON first."
+        throw "Missing $required. Build with TG190X4_ENABLE_AUTOUPDATE=ON first."
     }
 }
 

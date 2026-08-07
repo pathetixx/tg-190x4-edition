@@ -1,11 +1,11 @@
 [Desktop Entry]
-Name=AyuGram Desktop
-Comment=Desktop version of AyuGram - ToS breaking Telegram client
-TryExec=AyuGram
-Exec=env DESKTOPINTEGRATION=1 AyuGram -- %U
-Icon=com.ayugram.desktop
+Name=TG 190x4 EDITION
+Comment=Personal Telegram Desktop build with the ghost-mode feature set
+TryExec=TG190x4
+Exec=env DESKTOPINTEGRATION=1 TG190x4 -- %U
+Icon=com.tg190x4.desktop
 Terminal=false
-StartupWMClass=AyuGram
+StartupWMClass=TG190x4
 Type=Application
 Categories=Chat;Network;InstantMessaging;Qt;
 MimeType=x-scheme-handler/tg;x-scheme-handler/tonsite;
@@ -17,6 +17,6 @@ X-GNOME-UsesNotifications=true
 X-GNOME-SingleWindow=true
 
 [Desktop Action quit]
-Exec=AyuGram -quit
-Name=Quit AyuGram
+Exec=TG190x4 -quit
+Name=Quit TG 190x4 EDITION
 Icon=application-exit

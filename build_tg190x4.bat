@@ -14,13 +14,13 @@ if not defined TDESKTOP_API_HASH (
     exit /b 2
 )
 
-set "BUILD_PARALLEL=!AYUGRAM_BUILD_PARALLEL!"
+set "BUILD_PARALLEL=!TG190X4_BUILD_PARALLEL!"
 if "!BUILD_PARALLEL!"=="" set "BUILD_PARALLEL=4"
-set "ENABLE_AUTOUPDATE=!AYUGRAM_ENABLE_AUTOUPDATE!"
+set "ENABLE_AUTOUPDATE=!TG190X4_ENABLE_AUTOUPDATE!"
 if "!ENABLE_AUTOUPDATE!"=="" set "ENABLE_AUTOUPDATE=OFF"
 
 if /I not "!ENABLE_AUTOUPDATE!"=="ON" if /I not "!ENABLE_AUTOUPDATE!"=="OFF" (
-    echo [ERROR] AYUGRAM_ENABLE_AUTOUPDATE must be ON or OFF.
+    echo [ERROR] TG190X4_ENABLE_AUTOUPDATE must be ON or OFF.
     exit /b 2
 )
 
@@ -78,7 +78,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-if not defined AYUGRAM_SKIP_PREPARE (
+if not defined TG190X4_SKIP_PREPARE (
     echo Preparing dependencies using the existing cache...
     call Telegram\build\prepare\win.bat silent
     if errorlevel 1 (
@@ -89,12 +89,12 @@ if not defined AYUGRAM_SKIP_PREPARE (
 
 set "UPDATE_DEFINE=-DDESKTOP_APP_DISABLE_AUTOUPDATE=ON"
 if /I "!ENABLE_AUTOUPDATE!"=="ON" (
-    if not defined AYUGRAM_UPDATE_PREFIX (
-        echo [ERROR] AYUGRAM_UPDATE_PREFIX is required when auto-update is enabled.
+    if not defined TG190X4_UPDATE_PREFIX (
+        echo [ERROR] TG190X4_UPDATE_PREFIX is required when auto-update is enabled.
         exit /b 2
     )
-    if "!AYUGRAM_UPDATE_PREFIX:~-1!" == "/" (
-        echo [ERROR] AYUGRAM_UPDATE_PREFIX must not end with a slash.
+    if "!TG190X4_UPDATE_PREFIX:~-1!" == "/" (
+        echo [ERROR] TG190X4_UPDATE_PREFIX must not end with a slash.
         echo         The client appends /current4 and the package path itself.
         exit /b 2
     )
@@ -103,7 +103,7 @@ if /I "!ENABLE_AUTOUPDATE!"=="ON" (
         echo [ERROR] Auto-update source verification failed.
         exit /b 2
     )
-    set "UPDATE_DEFINE=-DDESKTOP_APP_DISABLE_AUTOUPDATE=OFF -DAYUGRAM_UPDATE_PREFIX=!AYUGRAM_UPDATE_PREFIX! -DAYUGRAM_BUILD_PACKER=ON"
+    set "UPDATE_DEFINE=-DDESKTOP_APP_DISABLE_AUTOUPDATE=OFF -DTG190X4_UPDATE_PREFIX=!TG190X4_UPDATE_PREFIX! -DTG190X4_BUILD_PACKER=ON"
 )
 
 echo Configuring TG 190x4 EDITION...

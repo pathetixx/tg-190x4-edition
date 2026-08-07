@@ -15,13 +15,13 @@ From the repository root, provide your API credentials and run the Release build
 
     set TDESKTOP_API_ID=your_api_id
     set TDESKTOP_API_HASH=your_api_hash
-    set AYUGRAM_BUILD_PARALLEL=4
-    set AYUGRAM_ENABLE_AUTOUPDATE=OFF
-    call build_ayugram.bat
+    set TG190X4_BUILD_PARALLEL=4
+    set TG190X4_ENABLE_AUTOUPDATE=OFF
+    call build_tg190x4.bat
 
 The result is `out\Release\TG190x4.exe`. Keep `out` between builds so CMake can reuse object files. Remove it only when a genuinely clean build is required. Normal development uses Release only; Debug is intentionally not part of the regular builder because it creates a large second set of intermediate files.
 
-Auto-update is intentionally fail-closed. Leave `AYUGRAM_ENABLE_AUTOUPDATE=OFF` until the fork has its own signed update channel. When it is ready, set `AYUGRAM_UPDATE_PREFIX` to a URL ending in `/`; the builder also checks that the legacy endpoint and official signing key have been replaced.
+Auto-update is intentionally fail-closed. Leave `TG190X4_ENABLE_AUTOUPDATE=OFF` until the fork has its own signed update channel. When it is ready, set `TG190X4_UPDATE_PREFIX` to a URL ending in `/`; the builder also checks that the legacy endpoint and official signing key have been replaced.
 
 To package an already built Release without compiling again, install Inno Setup 6 and run:
 
