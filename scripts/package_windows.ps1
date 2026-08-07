@@ -72,7 +72,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "Inno Setup failed with exit code $LASTEXITCODE."
 }
 
-$installerPath = Join-Path $ReleasePath "ayusetup-x64.$version.exe"
+$installerPath = Join-Path $ReleasePath "tg190x4setup-x64.$version.exe"
 if (-not (Test-Path -LiteralPath $installerPath)) {
     throw "Installer was not produced: $installerPath"
 }
