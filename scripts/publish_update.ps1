@@ -102,8 +102,8 @@ if ($releaseExists) {
     & gh release create $tag $packagePath $manifestPath `
         --repo $Repo `
         --latest `
-        --title "AyuGram $versionString" `
-        --notes "Update payload for AyuGram $versionString (Windows x64)." | Out-Host
+        --title "TG 190x4 EDITION $versionString" `
+        --notes "Update payload for TG 190x4 EDITION $versionString (Windows x64)." | Out-Host
 }
 if ($LASTEXITCODE -ne 0) {
     throw "Publishing to $Repo failed."

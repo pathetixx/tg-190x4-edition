@@ -19,7 +19,7 @@ From the repository root, provide your API credentials and run the Release build
     set AYUGRAM_ENABLE_AUTOUPDATE=OFF
     call build_ayugram.bat
 
-The result is `out\Release\AyuGram.exe`. Keep `out` between builds so CMake can reuse object files. Remove it only when a genuinely clean build is required. Normal development uses Release only; Debug is intentionally not part of the regular builder because it creates a large second set of intermediate files.
+The result is `out\Release\TG190x4.exe`. Keep `out` between builds so CMake can reuse object files. Remove it only when a genuinely clean build is required. Normal development uses Release only; Debug is intentionally not part of the regular builder because it creates a large second set of intermediate files.
 
 Auto-update is intentionally fail-closed. Leave `AYUGRAM_ENABLE_AUTOUPDATE=OFF` until the fork has its own signed update channel. When it is ready, set `AYUGRAM_UPDATE_PREFIX` to a URL ending in `/`; the builder also checks that the legacy endpoint and official signing key have been replaced.
 

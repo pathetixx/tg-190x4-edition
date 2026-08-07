@@ -2,8 +2,8 @@
 
 The fork tracks Telegram Desktop in two separate ways:
 
-- `dev` is the integration stream. It is useful for resolving AyuGram conflicts early, but it is not a release version by itself.
-- `vX.Y.Z` tags are the stable stream. A stable AyuGram release should be based on a Telegram tag and should keep the same Telegram version in `Telegram/build/version`.
+- `dev` is the integration stream. It is useful for resolving fork conflicts early, but it is not a release version by itself.
+- `vX.Y.Z` tags are the stable stream. A stable fork release should be based on a Telegram tag and should keep the same Telegram version in `Telegram/build/version`.
 
 Preview the current integration delta:
 
@@ -23,7 +23,7 @@ Apply a merge only from a clean worktree:
 pwsh -File scripts/sync_upstream.ps1 -Ref dev -Apply
 ```
 
-The script creates a separate `sync/upstream/...` branch, enables Git rerere, aborts on conflicts, and runs the fork invariant checks before committing. Conflicts in AyuGram code remain a deliberate maintainer decision; they are not silently overwritten.
+The script creates a separate `sync/upstream/...` branch, enables Git rerere, aborts on conflicts, and runs the fork invariant checks before committing. Conflicts in fork code remain a deliberate maintainer decision; they are not silently overwritten.
 
 The Windows installer is per-user and is registered by Inno Setup in the current user's installed-programs list. It installs to the existing user-data-compatible location so the built-in updater can replace files without requiring administrator rights. The portable ZIP remains a separate artifact.
 
@@ -43,7 +43,7 @@ Publish an update from a build made with auto-update enabled:
 pwsh -File scripts/publish_update.ps1 -Publish
 ```
 
-The script runs Packer over `AyuGram.exe` and `Updater.exe`, writes the
+The script runs Packer over `TG190x4.exe` and `Updater.exe`, writes the
 `current4` manifest and uploads both as the latest release of the update
 channel repository. Without `-Publish` it only prepares the files locally.
 

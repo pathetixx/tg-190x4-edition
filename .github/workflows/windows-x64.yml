@@ -67,7 +67,7 @@ jobs:
           }
           Get-PSDrive -PSProvider FileSystem
 
-      - name: Build AyuGram
+      - name: Build TG 190x4 EDITION
         shell: cmd
         run: call build_ayugram.bat
 
@@ -94,10 +94,10 @@ jobs:
           Write-Host "FileVersion=$($version.FileVersion)"
           Write-Host "ProductVersion=$($version.ProductVersion)"
 
-          if ($version.ProductName -ne 'AyuGram Desktop') {
+          if ($version.ProductName -ne 'TG 190x4 EDITION') {
             throw "Unexpected ProductName: $($version.ProductName)"
           }
-          if ($version.FileDescription -ne 'AyuGram Desktop') {
+          if ($version.FileDescription -ne 'TG 190x4 EDITION') {
             throw "Unexpected FileDescription: $($version.FileDescription)"
           }
           if (-not $version.FileVersion.StartsWith($env:AYUGRAM_VERSION)) {
