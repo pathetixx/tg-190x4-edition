@@ -62,7 +62,9 @@ void initLang() {
 		return;
 	}
 	AyuLanguage::init();
-	AyuLanguage::currentInstance()->fetchLanguage(id, baseId);
+	if (!AyuLanguage::currentInstance()->applyBundledLanguage(id, baseId)) {
+		AyuLanguage::currentInstance()->fetchLanguage(id, baseId);
+	}
 }
 
 void initUiSettings() {

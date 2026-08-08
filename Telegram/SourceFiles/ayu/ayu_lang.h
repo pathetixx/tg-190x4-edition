@@ -20,6 +20,7 @@ public:
 	static AyuLanguage *instance;
 
 	void fetchLanguage(const QString &id, const QString &baseId);
+	bool applyBundledLanguage(const QString &id, const QString &baseId);
 	void applyLanguageJson(QJsonDocument doc);
 
 public Q_SLOTS:
@@ -31,6 +32,7 @@ private:
 	~AyuLanguage() override = default;
 
 	void loadCachedLanguage();
+	bool loadBundledLanguage(const QString &langId);
 	void saveCachedLanguage(const QByteArray &json, const QString &langId);
 	[[nodiscard]] QString getCacheDir() const;
 	[[nodiscard]] QString getCachePath(const QString &langId) const;

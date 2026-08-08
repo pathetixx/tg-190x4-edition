@@ -89,6 +89,35 @@ void AyuLanguage::loadCachedLanguage() {
 	}
 }
 
+bool AyuLanguage::loadBundledLanguage(const QString &langId) {
+	if (langId.isEmpty()) {
+		return false;
+	}
+
+	QFile file(u":/gui/langs/ayu/"_q + langId + u".json"_q);
+	if (!file.exists() || !file.open(QIODevice::ReadOnly)) {
+		return false;
+	}
+
+	const auto data = file.readAll();
+	file.close();
+
+	QJsonParseError error{};
+	const auto doc = QJsonDocument::fromJson(data, &error);
+	if (error.error != QJsonParseError::NoError) {
+		return false;
+	}
+
+	LOG(("Loading bundled TG 190x4 language: %1").arg(langId));
+	applyLanguageJson(doc);
+	return true;
+}
+
+bool AyuLanguage::applyBundledLanguage(const QString &id, const QString &baseId) {
+	const auto mapped = langMapping.contains(id) ? langMapping[id] : id;
+	return loadBundledLanguage(mapped) || loadBundledLanguage(baseId);
+}
+
 void AyuLanguage::saveCachedLanguage(const QByteArray &json, const QString &langId) {
 	const auto cacheDir = getCacheDir();
 	QDir().mkpath(cacheDir);
