@@ -18,6 +18,7 @@
 // hard-coded languages
 std::map<QString, QString> langMapping = {
 	{"pt-br", "pt"},
+	{"ru-raw", "ru"},
 	{"zh-hans-beta", "zh-hans"},
 	{"zh-hant-beta", "zh-hant"},
 	{"zh-hans-raw", "zh-hans"},
@@ -114,8 +115,10 @@ bool AyuLanguage::loadBundledLanguage(const QString &langId) {
 }
 
 bool AyuLanguage::applyBundledLanguage(const QString &id, const QString &baseId) {
-	const auto mapped = langMapping.contains(id) ? langMapping[id] : id;
-	return loadBundledLanguage(mapped) || loadBundledLanguage(baseId);
+	const auto mapped = [](const QString &langId) {
+		return langMapping.contains(langId) ? langMapping[langId] : langId;
+	};
+	return loadBundledLanguage(mapped(id)) || loadBundledLanguage(mapped(baseId));
 }
 
 void AyuLanguage::saveCachedLanguage(const QByteArray &json, const QString &langId) {
