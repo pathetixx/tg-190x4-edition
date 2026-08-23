@@ -114,7 +114,12 @@ if /I "!ENABLE_AUTOUPDATE!"=="ON" (
 )
 
 echo Configuring TG 190x4 EDITION...
-call Telegram\configure.bat x64 -DTDESKTOP_API_ID=!TDESKTOP_API_ID! -DTDESKTOP_API_HASH=!TDESKTOP_API_HASH! !UPDATE_DEFINE! !TG190X4_EXTRA_DEFINES!
+rem run_cmake.py rejects the x64 switch unless the Visual Studio generator is used.
+if defined TG190X4_GENERATOR (
+    call Telegram\configure.bat "-G!TG190X4_GENERATOR!" -DTDESKTOP_API_ID=!TDESKTOP_API_ID! -DTDESKTOP_API_HASH=!TDESKTOP_API_HASH! !UPDATE_DEFINE! !TG190X4_EXTRA_DEFINES!
+) else (
+    call Telegram\configure.bat x64 -DTDESKTOP_API_ID=!TDESKTOP_API_ID! -DTDESKTOP_API_HASH=!TDESKTOP_API_HASH! !UPDATE_DEFINE! !TG190X4_EXTRA_DEFINES!
+)
 if errorlevel 1 (
     echo [ERROR] Configuration failed.
     exit /b 1
