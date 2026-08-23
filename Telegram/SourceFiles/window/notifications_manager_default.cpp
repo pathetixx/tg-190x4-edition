@@ -11,6 +11,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "platform/platform_specific.h"
 #include "core/application.h"
 #include "core/ui_integration.h"
+#include "chat_helpers/emoji_suggestions_widget.h"
 #include "chat_helpers/message_field.h"
 #include "lang/lang_keys.h"
 #include "ui/widgets/buttons.h"
@@ -149,7 +150,7 @@ void Manager::settingsChanged(ChangeType change) {
 	} else if (change == ChangeType::MaxCount) {
 		int allow = Core::App().settings().notificationsCount();
 		for (int i = _notifications.size(); i != 0;) {
-			auto &notification = _notifications[--i];
+			const auto &notification = _notifications[--i];
 			if (notification->isUnlinked()) continue;
 			if (--allow < 0) {
 				notification->unlinkHistory();
@@ -299,7 +300,7 @@ void Manager::moveWidgets() {
 	auto shift = st::notifyDeltaY;
 	int lastShift = 0, lastShiftCurrent = 0, count = 0;
 	for (int i = _notifications.size(); i != 0;) {
-		auto &notification = _notifications[--i];
+		const auto &notification = _notifications[--i];
 		if (notification->isUnlinked()) continue;
 
 		notification->changeShift(shift);
@@ -1138,10 +1139,23 @@ void Notification::showReplyField() {
 	_replyArea->setMaxLength(
 		Data::PremiumLimits(&_item->history()->session()).messageLengthCurrent());
 	_replyArea->setSubmitSettings(Ui::InputField::SubmitSettings::Both);
+	const auto session = &_item->history()->session();
 	InitMessageFieldHandlers({
-		.session = &_item->history()->session(),
+		.session = session,
 		.field = _replyArea.data(),
 	});
+	const auto peer = _item->history()->peer;
+	Ui::Emoji::SuggestionsController::Init(
+		this,
+		_replyArea.data(),
+		session,
+		{
+			.suggestCustomEmoji = true,
+			.allowCustomWithoutPremium = [=](
+					not_null<DocumentData*> emoji) {
+				return Data::AllowEmojiWithoutPremium(peer, emoji);
+			},
+		});
 
 	// Catch mouse press event to activate the window.
 	QCoreApplication::instance()->installEventFilter(this);

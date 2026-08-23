@@ -11,6 +11,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/runtime_composer.h"
 #include "base/flags.h"
 #include "base/weak_ptr.h"
+#include "iv/iv_rich_page.h"
 #include "ui/effects/animations.h"
 #include "ui/userpic_view.h"
 
@@ -78,6 +79,7 @@ enum class Context : char {
 	ShortcutMessages,
 	ScheduledTopic,
 	ChatPreview,
+	WelcomeMessages,
 };
 
 enum class OnlyEmojiAndSpaces : char {
@@ -384,7 +386,7 @@ struct FakeBotAboutTop : RuntimeComponent<FakeBotAboutTop, Element> {
 };
 
 struct EphemeralBadge : RuntimeComponent<EphemeralBadge, Element> {
-	void init(not_null<const HistoryItem*> item);
+	void init(not_null<const Element*> view);
 
 	Ui::Text::String text;
 	UserData *receiver = nullptr;
@@ -460,6 +462,8 @@ public:
 	[[nodiscard]] Context context() const;
 	void refreshDataId();
 
+	[[nodiscard]] PeerData *displayFrom() const;
+
 	[[nodiscard]] uint8 colorIndex() const;
 	[[nodiscard]] auto colorCollectible() const
 		-> const std::shared_ptr<Ui::ColorCollectible> &;
@@ -492,6 +496,7 @@ public:
 
 	[[nodiscard]] bool isTopicRootReply() const;
 
+	[[nodiscard]] bool hidesBottomInfo() const;
 	[[nodiscard]] int skipBlockWidth() const;
 	[[nodiscard]] int skipBlockHeight() const;
 	[[nodiscard]] virtual int infoWidth() const;
@@ -550,6 +555,7 @@ public:
 
 	[[nodiscard]] bool displayForumThreadBar() const;
 	[[nodiscard]] bool isInOneBunchWithPrevious() const;
+	void refreshForumThreadBar(Element *previous, bool enabled);
 
 	virtual void draw(Painter &p, const PaintContext &context) const = 0;
 	[[nodiscard]] virtual PointState pointState(QPoint point) const = 0;
@@ -575,6 +581,8 @@ public:
 		TextSelectType type) const;
 	virtual TextForMimeData selectedText(TextSelection selection) const = 0;
 	virtual TextForMimeData selectedText(
+		const MessageSelection &selection) const;
+	[[nodiscard]] Iv::RichPageBlocksSlice selectedRichBlocks(
 		const MessageSelection &selection) const;
 	virtual SelectedQuote selectedQuote(
 		TextSelection selection) const = 0;
@@ -810,6 +818,8 @@ private:
 	// should be cached in a client side flag
 	// HistoryView::Element::Flag::AttachedToPrevious.
 	void recountAttachToPreviousInBlocks();
+
+	void refreshEphemeralBadge();
 
 	[[nodiscard]] bool countIsTopicRootReply() const;
 

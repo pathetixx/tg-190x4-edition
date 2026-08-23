@@ -561,6 +561,13 @@ void WrapWidget::setupTopBarMenuToggle() {
 		}, _topBar->lifetime());
 	} else if (key.giftsPeer()) {
 		addTopBarMenuButton();
+	} else if (section.type() == Section::Type::Statistics) {
+		_content->topBarMenuFilledChanges(
+		) | rpl::on_next([=] {
+			if (!_topBarMenuToggle) {
+				addTopBarMenuButton();
+			}
+		}, _topBar->lifetime());
 	}
 }
 
@@ -1018,6 +1025,7 @@ bool WrapWidget::returnToFirstStackFrame(
 	auto firstSection = _historyStack.front().section->section();
 	if (firstPeer == memento->peer()
 		&& firstSection.type() == memento->section().type()
+		&& firstSection.savedMessages() == memento->section().savedMessages()
 		&& firstSection.type() == Section::Type::Profile) {
 		_historyStack.resize(1);
 		_controller->showBackFromStack();
