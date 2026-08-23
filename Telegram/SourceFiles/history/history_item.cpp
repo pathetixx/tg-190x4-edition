@@ -547,36 +547,9 @@ HistoryItem::HistoryItem(
 		setReactions(data.vreactions());
 		applyTTL(data);
 	} else {
-		auto skipSetText = false;
 		createComponents(data);
 		if (media) {
 			setMedia(*media);
-			if (checked == MediaCheckResult::HasUnsupportedTimeToLive) {
-				media->match(
-					[&](const MTPDmessageMediaPhoto &media)
-					{
-						if (!data.is_media_unread()) {
-							createServiceFromMtp(data);
-							skipSetText = true;
-						}
-
-						const auto time = media.vttl_seconds()->v;
-						setAyuHint(formatTTL(time, false));
-						_unsupportedTTL = time;
-					},
-					[&](const MTPDmessageMediaDocument &media)
-					{
-						if (!data.is_media_unread()) {
-							createServiceFromMtp(data);
-							skipSetText = true;
-						}
-
-						const auto time = media.vttl_seconds()->v;
-						setAyuHint(formatTTL(time, true));
-						_unsupportedTTL = time;
-					},
-					[](const auto &) {});
-			}
 		}
 		if (const auto media = _media.get()) {
 			if (media->ttlSeconds()
@@ -589,20 +562,18 @@ HistoryItem::HistoryItem(
 					TimeId(media->ttlSeconds()));
 			}
 		}
-		if (!skipSetText) {
-			if (const auto richMessage = data.vrich_message()) {
-				const auto richPage = Iv::ParseRichPage(&history->session(), *richMessage);
-				setRichPage(richPage);
-				setText(Iv::FlattenRichPageSummary(richPage));
-			} else {
-				auto textWithEntities = TextWithEntities{
-					qs(data.vmessage()),
-					Api::EntitiesFromMTP(
-						&history->session(),
-						data.ventities().value_or_empty())
-				};
-				setText(_media ? textWithEntities : EnsureNonEmpty(textWithEntities));
-			}
+		if (const auto richMessage = data.vrich_message()) {
+			const auto richPage = Iv::ParseRichPage(&history->session(), *richMessage);
+			setRichPage(richPage);
+			setText(Iv::FlattenRichPageSummary(richPage));
+		} else {
+			auto textWithEntities = TextWithEntities{
+				qs(data.vmessage()),
+				Api::EntitiesFromMTP(
+					&history->session(),
+					data.ventities().value_or_empty())
+			};
+			setText(_media ? textWithEntities : EnsureNonEmpty(textWithEntities));
 		}
 		if (const auto groupedId = data.vgrouped_id()) {
 			setGroupId(
