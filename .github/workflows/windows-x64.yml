@@ -298,9 +298,9 @@ jobs:
           TDESKTOP_API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
           TG190X4_ENABLE_AUTOUPDATE: "ON"
           TG190X4_UPDATE_PREFIX: ${{ env.UPDATE_PREFIX }}
-          TG190X4_BUILD_PARALLEL: "2"
+          TG190X4_BUILD_PARALLEL: "3"
           TG190X4_EXTRA_DEFINES: -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=
-          _CL_: /MP1
+          TG190X4_GENERATOR: Ninja Multi-Config
         run: call build_tg190x4.bat
 
       - name: Report free space
