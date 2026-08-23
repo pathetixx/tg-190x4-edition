@@ -5,13 +5,15 @@ echo ==================================================
 echo TG 190x4 EDITION Builder
 echo ==================================================
 
-if not defined TDESKTOP_API_ID (
-    echo [ERROR] TDESKTOP_API_ID is not set.
-    exit /b 2
-)
-if not defined TDESKTOP_API_HASH (
-    echo [ERROR] TDESKTOP_API_HASH is not set.
-    exit /b 2
+if not defined TG190X4_PREPARE_ONLY (
+    if not defined TDESKTOP_API_ID (
+        echo [ERROR] TDESKTOP_API_ID is not set.
+        exit /b 2
+    )
+    if not defined TDESKTOP_API_HASH (
+        echo [ERROR] TDESKTOP_API_HASH is not set.
+        exit /b 2
+    )
 )
 
 set "BUILD_PARALLEL=!TG190X4_BUILD_PARALLEL!"
@@ -85,6 +87,11 @@ if not defined TG190X4_SKIP_PREPARE (
         echo [ERROR] Dependency preparation failed.
         exit /b 1
     )
+)
+
+if defined TG190X4_PREPARE_ONLY (
+    echo Dependencies are ready, stopping before the build as requested.
+    exit /b 0
 )
 
 set "UPDATE_DEFINE=-DDESKTOP_APP_DISABLE_AUTOUPDATE=ON"

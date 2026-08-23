@@ -4,6 +4,9 @@ on:
   pull_request:
     branches:
       - main
+  push:
+    tags:
+      - 'ayugram-v*'
   workflow_dispatch:
 
 permissions:
@@ -11,7 +14,11 @@ permissions:
 
 concurrency:
   group: windows-x64-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
+
+env:
+  REPO_DIR: tg-190x4-edition
+  UPDATE_PREFIX: https://github.com/pathetixx/tg190x4-updates/releases/latest/download
 
 jobs:
   verify-fork:
@@ -27,26 +34,161 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Verify private-fork invariants
-        run: python tools/verify_private_fork.py
+      - name: Verify fork invariants
+        run: python tools/verify_private_fork.py --require-autoupdate
 
-  build-windows-x64:
-    name: Build Windows x64
+  libraries:
+    name: Third-party libraries
     needs: verify-fork
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/tg190x4-v')
+    if: github.event_name != 'pull_request'
     runs-on: windows-2022
-    timeout-minutes: 360
-    env:
-      TDESKTOP_API_ID: ${{ secrets.TDESKTOP_API_ID }}
-      TDESKTOP_API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
-      TG190X4_ENABLE_AUTOUPDATE: "OFF"
-      TG190X4_BUILD_PARALLEL: "4"
+    timeout-minutes: 350
+    outputs:
+      cache-key: ${{ steps.key.outputs.value }}
     steps:
+      - name: Prepare directories
+        shell: cmd
+        run: |
+          mkdir %userprofile%\TBuild\Libraries
+          mklink /d %GITHUB_WORKSPACE%\TBuild %userprofile%\TBuild
+          echo TBUILD=%GITHUB_WORKSPACE%\TBuild>>%GITHUB_ENV%
+          echo LIBRARIES_PATH=%GITHUB_WORKSPACE%\TBuild\Libraries\win64>>%GITHUB_ENV%
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          path: TBuild/tg-190x4-edition
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compute cache key
+        id: key
+        shell: bash
+        run: |
+          cd "$TBUILD/$REPO_DIR"
+          value=$(cat \
+            Telegram/build/prepare/prepare.py \
+            Telegram/build/prepare/qt_version.py \
+            | sha256sum | cut -d' ' -f1)
+          echo "value=$value" >> $GITHUB_OUTPUT
+          echo "CACHE_KEY=$value" >> $GITHUB_ENV
+
+      - name: Restore ThirdParty cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.TBUILD }}\ThirdParty
+          key: third-party-${{ env.CACHE_KEY }}-
+          restore-keys: |
+            third-party-${{ env.CACHE_KEY }}-
+            third-party-
+
+      - name: Restore Qt cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ env.LIBRARIES_PATH }}\[qQ]t[_-]*
+            ${{ env.LIBRARIES_PATH }}\cache_keys\[qQ]t[_-]*
+          key: qt-${{ env.CACHE_KEY }}-
+          restore-keys: |
+            qt-${{ env.CACHE_KEY }}-
+            qt-
+
+      - name: Restore libraries cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ env.LIBRARIES_PATH }}\*
+            !${{ env.LIBRARIES_PATH }}\cache_keys
+            !${{ env.LIBRARIES_PATH }}\[qQ]t[_-]*
+            ${{ env.LIBRARIES_PATH }}\cache_keys\*
+            !${{ env.LIBRARIES_PATH }}\cache_keys\[qQ]t[_-]*
+          key: libs-${{ env.CACHE_KEY }}-
+          restore-keys: |
+            libs-${{ env.CACHE_KEY }}-
+            libs-
+
+      - name: Build libraries
+        id: prepare
+        timeout-minutes: 290
+        shell: cmd
+        working-directory: TBuild/tg-190x4-edition
+        env:
+          TG190X4_PREPARE_ONLY: "1"
+          TG190X4_BUILD_PARALLEL: "4"
+        run: call build_tg190x4.bat
+
+      # Keeps the cached tree small enough for the repository cache budget.
+      # prepare.py decides what to rebuild from cache_keys, not from these files.
+      - name: Drop intermediate files
+        if: always()
+        shell: bash
+        run: |
+          find "$LIBRARIES_PATH" \
+            '(' '(' ! '(' -name '*.lib' -o -name '*.a' -o -name '*.exe' \
+              -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' \
+              -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' \
+              -o -path '*/objects-*' -o -path '*/cache_keys/*' \
+              -o -path '*/patches/*' -o -path '*/nv-codec-headers/*' ')' \
+            -type f ')' -o -empty ')' -delete || true
+
+      # Saved even when the step above failed or the job ran out of time, so a
+      # re-run of this job continues from the stages that did finish.
+      - name: Save ThirdParty cache
+        if: always()
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.TBUILD }}\ThirdParty
+          key: third-party-${{ env.CACHE_KEY }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Save Qt cache
+        if: always()
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ env.LIBRARIES_PATH }}\[qQ]t[_-]*
+            ${{ env.LIBRARIES_PATH }}\cache_keys\[qQ]t[_-]*
+          key: qt-${{ env.CACHE_KEY }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Save libraries cache
+        if: always()
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ env.LIBRARIES_PATH }}\*
+            !${{ env.LIBRARIES_PATH }}\cache_keys
+            !${{ env.LIBRARIES_PATH }}\[qQ]t[_-]*
+            ${{ env.LIBRARIES_PATH }}\cache_keys\*
+            !${{ env.LIBRARIES_PATH }}\cache_keys\[qQ]t[_-]*
+          key: libs-${{ env.CACHE_KEY }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+  build:
+    name: Build client
+    needs: libraries
+    runs-on: windows-2022
+    timeout-minutes: 350
+    steps:
+      - name: Prepare directories
+        shell: cmd
+        run: |
+          mkdir %userprofile%\TBuild\Libraries
+          mklink /d %GITHUB_WORKSPACE%\TBuild %userprofile%\TBuild
+          echo TBUILD=%GITHUB_WORKSPACE%\TBuild>>%GITHUB_ENV%
+          echo LIBRARIES_PATH=%GITHUB_WORKSPACE%\TBuild\Libraries\win64>>%GITHUB_ENV%
+          echo CACHE_KEY=${{ needs.libraries.outputs.cache-key }}>>%GITHUB_ENV%
+
       - name: Checkout with submodules
         uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 1
+          path: TBuild/tg-190x4-edition
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -56,64 +198,147 @@ jobs:
       - name: Reclaim runner disk space
         shell: pwsh
         run: |
-          $paths = @(
-            'C:\Android',
-            'C:\hostedtoolcache\windows\CodeQL'
-          )
-          foreach ($path in $paths) {
+          foreach ($path in @('C:\Android', 'C:\hostedtoolcache\windows\CodeQL')) {
             if (Test-Path $path) {
               Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue
             }
           }
           Get-PSDrive -PSProvider FileSystem
 
+      - name: Restore ThirdParty cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.TBUILD }}\ThirdParty
+          key: third-party-${{ env.CACHE_KEY }}-
+          restore-keys: |
+            third-party-${{ env.CACHE_KEY }}-
+            third-party-
+
+      - name: Restore Qt cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ env.LIBRARIES_PATH }}\[qQ]t[_-]*
+            ${{ env.LIBRARIES_PATH }}\cache_keys\[qQ]t[_-]*
+          key: qt-${{ env.CACHE_KEY }}-
+          restore-keys: |
+            qt-${{ env.CACHE_KEY }}-
+            qt-
+
+      - name: Restore libraries cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ env.LIBRARIES_PATH }}\*
+            !${{ env.LIBRARIES_PATH }}\cache_keys
+            !${{ env.LIBRARIES_PATH }}\[qQ]t[_-]*
+            ${{ env.LIBRARIES_PATH }}\cache_keys\*
+            !${{ env.LIBRARIES_PATH }}\cache_keys\[qQ]t[_-]*
+          key: libs-${{ env.CACHE_KEY }}-
+          restore-keys: |
+            libs-${{ env.CACHE_KEY }}-
+            libs-
+
+      - name: Write update signing keys
+        shell: bash
+        env:
+          PACKER_PRIVATE_H: ${{ secrets.PACKER_PRIVATE_H }}
+        run: |
+          if [ -z "$PACKER_PRIVATE_H" ]; then
+            echo "PACKER_PRIVATE_H secret is not set." >&2
+            exit 1
+          fi
+          printf '%s' "$PACKER_PRIVATE_H" \
+            > "$TBUILD/$REPO_DIR/Telegram/SourceFiles/_other/packer_private.h"
+
       - name: Build TG 190x4 EDITION
         shell: cmd
+        working-directory: TBuild/tg-190x4-edition
+        env:
+          TDESKTOP_API_ID: ${{ secrets.TDESKTOP_API_ID }}
+          TDESKTOP_API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
+          TG190X4_ENABLE_AUTOUPDATE: "ON"
+          TG190X4_UPDATE_PREFIX: ${{ env.UPDATE_PREFIX }}
+          TG190X4_BUILD_PARALLEL: "4"
         run: call build_tg190x4.bat
 
+      - name: Drop the signing keys
+        if: always()
+        shell: bash
+        run: rm -f "$TBUILD/$REPO_DIR/Telegram/SourceFiles/_other/packer_private.h"
+
       - name: Read version
-        shell: pwsh
+        shell: bash
         run: |
-          $line = Get-Content Telegram/build/version |
-            Where-Object { $_ -match '^AppVersionStr\s+([^\s]+)$' } |
-            Select-Object -First 1
-          if (-not $line -or $line -notmatch '^AppVersionStr\s+([^\s]+)$') {
-            throw 'AppVersionStr was not found.'
-          }
-          "TG190X4_VERSION=$($Matches[1])" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          version=$(sed -n 's/^AppVersionStr[[:space:]]\+\(.*\)$/\1/p' \
+            "$TBUILD/$REPO_DIR/Telegram/build/version" | tr -d '[:space:]')
+          if [ -z "$version" ]; then
+            echo "AppVersionStr was not found." >&2
+            exit 1
+          fi
+          echo "TG190X4_VERSION=$version" >> $GITHUB_ENV
 
       - name: Verify executable metadata
         shell: pwsh
         run: |
-          $exe = Join-Path $env:GITHUB_WORKSPACE 'out\Release\TG190x4.exe'
+          $exe = Join-Path $env:TBUILD "$env:REPO_DIR\out\Release\TG190x4.exe"
           if (-not (Test-Path $exe)) { throw 'TG190x4.exe was not produced.' }
 
           $version = (Get-Item $exe).VersionInfo
           Write-Host "ProductName=$($version.ProductName)"
-          Write-Host "FileDescription=$($version.FileDescription)"
           Write-Host "FileVersion=$($version.FileVersion)"
-          Write-Host "ProductVersion=$($version.ProductVersion)"
 
           if ($version.ProductName -ne 'TG 190x4 EDITION') {
             throw "Unexpected ProductName: $($version.ProductName)"
           }
-          if ($version.FileDescription -ne 'TG 190x4 EDITION') {
-            throw "Unexpected FileDescription: $($version.FileDescription)"
-          }
           if (-not $version.FileVersion.StartsWith($env:TG190X4_VERSION)) {
-            throw "Unexpected FileVersion: $($version.FileVersion), expected $env:TG190X4_VERSION"
+            throw "Unexpected FileVersion: $($version.FileVersion)"
           }
+
+      - name: Upload client
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-${{ env.TG190X4_VERSION }}
+          path: |
+            TBuild/tg-190x4-edition/out/Release/TG190x4.exe
+            TBuild/tg-190x4-edition/out/Release/Updater.exe
+            TBuild/tg-190x4-edition/out/Release/Packer.exe
+            TBuild/tg-190x4-edition/out/Release/modules/**
+          if-no-files-found: error
+          retention-days: 14
+
+  package:
+    name: Package installer
+    needs: build
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Read version
+        shell: bash
+        run: |
+          version=$(sed -n 's/^AppVersionStr[[:space:]]\+\(.*\)$/\1/p' \
+            Telegram/build/version | tr -d '[:space:]')
+          echo "TG190X4_VERSION=$version" >> $GITHUB_ENV
+
+      - name: Download client
+        uses: actions/download-artifact@v4
+        with:
+          name: client-${{ env.TG190X4_VERSION }}
+          path: out/Release
 
       - name: Install Inno Setup
         shell: pwsh
         run: |
-          $isccCandidates = @(
+          $candidates = @(
             "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
-            "${env:ProgramFiles}\Inno Setup 6\ISCC.exe",
-            "${env:ProgramFiles(x86)}\Inno Setup 5\ISCC.exe",
-            "${env:LocalAppData}\Programs\Inno Setup 6\ISCC.exe"
+            "${env:ProgramFiles}\Inno Setup 6\ISCC.exe"
           )
-          if (-not ($isccCandidates | Where-Object { Test-Path $_ })) {
+          if (-not ($candidates | Where-Object { Test-Path $_ })) {
             choco install innosetup --no-progress -y
           }
 
@@ -123,18 +348,87 @@ jobs:
           & "$env:GITHUB_WORKSPACE\scripts\package_windows.ps1" `
             -ReleasePath "$env:GITHUB_WORKSPACE\out\Release" `
             -OutputPath "$env:GITHUB_WORKSPACE\artifacts"
+          Get-ChildItem "$env:GITHUB_WORKSPACE\artifacts" -File |
+            Select-Object Name, Length
 
-      - name: List artifacts
-        shell: pwsh
-        run: Get-ChildItem "$env:GITHUB_WORKSPACE\artifacts" -File | Select-Object Name, Length
-
-      - name: Upload Windows artifacts
+      - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
-          name: TG190x4-Windows-x64-${{ env.TG190X4_VERSION }}
+          name: installer-${{ env.TG190X4_VERSION }}
           path: |
             artifacts/TG190x4-portable-x64-*.zip
             artifacts/TG190x4-setup-x64-*.exe
             artifacts/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 14
+
+  publish:
+    name: Publish release and update
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/ayugram-v')
+    runs-on: windows-2022
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read version
+        shell: bash
+        run: |
+          version=$(sed -n 's/^AppVersionStr[[:space:]]\+\(.*\)$/\1/p' \
+            Telegram/build/version | tr -d '[:space:]')
+          echo "TG190X4_VERSION=$version" >> $GITHUB_ENV
+          tag="${GITHUB_REF#refs/tags/}"
+          echo "TG190X4_TAG=$tag" >> $GITHUB_ENV
+          if [ "$tag" != "ayugram-v$version" ]; then
+            echo "Tag $tag does not match version $version." >&2
+            exit 1
+          fi
+
+      - name: Download client
+        uses: actions/download-artifact@v4
+        with:
+          name: client-${{ env.TG190X4_VERSION }}
+          path: out/Release
+
+      - name: Download installer
+        uses: actions/download-artifact@v4
+        with:
+          name: installer-${{ env.TG190X4_VERSION }}
+          path: artifacts
+
+      - name: Create release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          notes=$(git tag -l --format='%(contents)' "$TG190X4_TAG")
+          if [ -z "$notes" ]; then
+            echo "Tag $TG190X4_TAG carries no release notes." >&2
+            exit 1
+          fi
+          printf '%s\n' "$notes" > release-notes.md
+          gh release create "$TG190X4_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "TG 190x4 EDITION $TG190X4_VERSION" \
+            --notes-file release-notes.md \
+            artifacts/TG190x4-setup-x64-*.exe \
+            artifacts/TG190x4-portable-x64-*.zip \
+            artifacts/SHA256SUMS.txt
+
+      - name: Publish update package
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.UPDATES_REPO_TOKEN }}
+        run: |
+          if (-not $env:GH_TOKEN) {
+            throw 'UPDATES_REPO_TOKEN secret is not set.'
+          }
+          & "$env:GITHUB_WORKSPACE\scripts\publish_update.ps1" `
+            -ReleasePath "$env:GITHUB_WORKSPACE\out\Release" `
+            -OutputPath "$env:GITHUB_WORKSPACE\artifacts\updates" `
+            -Publish

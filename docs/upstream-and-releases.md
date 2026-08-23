@@ -27,9 +27,36 @@ The script creates a separate `sync/upstream/...` branch, enables Git rerere, ab
 
 The Windows installer is per-user and is registered by Inno Setup in the current user's installed-programs list. It installs to the existing user-data-compatible location so the built-in updater can replace files without requiring administrator rights. The portable ZIP remains a separate artifact.
 
+Releases are built by the `Windows x64` workflow on GitHub Actions. Nothing is
+compiled by hand any more.
+
+The workflow is split so that a failed stage can be re-run on its own:
+
+- `verify-fork` — fork invariants, runs on pull requests too.
+- `libraries` — builds the third-party libraries into the Actions cache. It uses
+  no secrets. The cache is written even when the step fails or runs out of time,
+  so re-running only this job continues from the stages that already finished.
+- `build` — configures and compiles the client with auto-update enabled and
+  uploads `TG190x4.exe`, `Updater.exe` and `Packer.exe`.
+- `package` — builds the installer and the portable archive with checksums.
+- `publish` — creates the GitHub release and publishes the update package. Runs
+  only for `ayugram-v*` tags.
+
+`workflow_dispatch` runs everything except `publish`, which is the way to check a
+branch before tagging it.
+
+Release notes are taken from the annotated tag, and `publish` fails if the tag
+carries none or if the tag does not match `AppVersionStr`:
+
+```bash
+git tag -a ayugram-v7.1.1 -m "..." && git push origin ayugram-v7.1.1
+```
+
 Auto-update is enabled by passing `TG190X4_ENABLE_AUTOUPDATE=ON` together with
 `TG190X4_UPDATE_PREFIX` to `build_tg190x4.bat`. The prefix must not end with a
 slash: the client appends `/current4` and the package path to it.
+`TG190X4_PREPARE_ONLY=1` stops the script once the libraries are ready, which is
+what the `libraries` job uses.
 
 Update packages are signed with an RSA-2048 fork key. The public halves live in
 `Telegram/SourceFiles/config.h` and `Telegram/SourceFiles/_other/packer.cpp`.
@@ -37,7 +64,7 @@ The private halves belong in `Telegram/SourceFiles/_other/packer_private.h`,
 which is ignored by git and must never be committed. Losing the private key
 means installed clients stop accepting updates and have to be replaced by hand.
 
-Publish an update from a build made with auto-update enabled:
+A local build can still publish an update by hand:
 
 ```powershell
 pwsh -File scripts/publish_update.ps1 -Publish
