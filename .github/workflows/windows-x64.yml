@@ -238,8 +238,8 @@ jobs:
             -Property @{ Name = 'D:\pagefile.sys' } | Out-Null
           Get-CimInstance Win32_PageFileSetting |
             Set-CimInstance -Property @{
-              InitialSize = 65536
-              MaximumSize = 65536
+              InitialSize = 81920
+              MaximumSize = 81920
             }
           Get-CimInstance Win32_PageFileSetting |
             Select-Object Name, InitialSize, MaximumSize
@@ -300,7 +300,7 @@ jobs:
           TG190X4_UPDATE_PREFIX: ${{ env.UPDATE_PREFIX }}
           TG190X4_BUILD_PARALLEL: "2"
           TG190X4_EXTRA_DEFINES: -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=
-          _CL_: /MP2
+          _CL_: /MP1
         run: call build_tg190x4.bat
 
       - name: Report free space
