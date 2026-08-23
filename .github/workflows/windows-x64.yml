@@ -223,6 +223,27 @@ jobs:
         with:
           python-version: "3.11"
 
+      # The runner has 16 GB of RAM and a small pagefile. Heavy translation
+      # units commit more than that and the compiler dies with C1060.
+      - name: Enlarge the pagefile
+        shell: pwsh
+        run: |
+          $system = Get-CimInstance Win32_ComputerSystem
+          if ($system.AutomaticManagedPagefile) {
+            Set-CimInstance -InputObject $system `
+              -Property @{ AutomaticManagedPagefile = $false }
+          }
+          Get-CimInstance Win32_PageFileSetting | Remove-CimInstance
+          New-CimInstance -ClassName Win32_PageFileSetting `
+            -Property @{ Name = 'D:\pagefile.sys' } | Out-Null
+          Get-CimInstance Win32_PageFileSetting |
+            Set-CimInstance -Property @{
+              InitialSize = 24576
+              MaximumSize = 24576
+            }
+          Get-CimInstance Win32_PageFileSetting |
+            Select-Object Name, InitialSize, MaximumSize
+
       - name: Restore ThirdParty cache
         uses: actions/cache/restore@v4
         with:
@@ -277,8 +298,9 @@ jobs:
           TDESKTOP_API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
           TG190X4_ENABLE_AUTOUPDATE: "ON"
           TG190X4_UPDATE_PREFIX: ${{ env.UPDATE_PREFIX }}
-          TG190X4_BUILD_PARALLEL: "4"
+          TG190X4_BUILD_PARALLEL: "2"
           TG190X4_EXTRA_DEFINES: -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=
+          _CL_: /MP2
         run: call build_tg190x4.bat
 
       - name: Report free space
