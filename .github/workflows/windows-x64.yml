@@ -300,7 +300,7 @@ jobs:
           TG190X4_UPDATE_PREFIX: ${{ env.UPDATE_PREFIX }}
           TG190X4_BUILD_PARALLEL: "3"
           TG190X4_EXTRA_DEFINES: -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=
-          TG190X4_GENERATOR: Ninja Multi-Config
+          _CL_: /MP1
         run: call build_tg190x4.bat
 
       - name: Report free space
