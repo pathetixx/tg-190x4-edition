@@ -238,8 +238,8 @@ jobs:
             -Property @{ Name = 'D:\pagefile.sys' } | Out-Null
           Get-CimInstance Win32_PageFileSetting |
             Set-CimInstance -Property @{
-              InitialSize = 24576
-              MaximumSize = 24576
+              InitialSize = 65536
+              MaximumSize = 65536
             }
           Get-CimInstance Win32_PageFileSetting |
             Select-Object Name, InitialSize, MaximumSize
