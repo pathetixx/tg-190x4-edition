@@ -114,7 +114,7 @@ if /I "!ENABLE_AUTOUPDATE!"=="ON" (
 )
 
 echo Configuring TG 190x4 EDITION...
-call Telegram\configure.bat x64 -DTDESKTOP_API_ID=!TDESKTOP_API_ID! -DTDESKTOP_API_HASH=!TDESKTOP_API_HASH! !UPDATE_DEFINE!
+call Telegram\configure.bat x64 -DTDESKTOP_API_ID=!TDESKTOP_API_ID! -DTDESKTOP_API_HASH=!TDESKTOP_API_HASH! !UPDATE_DEFINE! !TG190X4_EXTRA_DEFINES!
 if errorlevel 1 (
     echo [ERROR] Configuration failed.
     exit /b 1

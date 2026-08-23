@@ -190,20 +190,38 @@ jobs:
           fetch-depth: 1
           path: TBuild/tg-190x4-edition
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
       - name: Reclaim runner disk space
         shell: pwsh
         run: |
-          foreach ($path in @('C:\Android', 'C:\hostedtoolcache\windows\CodeQL')) {
+          $paths = @(
+            'C:\Android',
+            'C:\Program Files (x86)\Android',
+            'C:\Program Files\Microsoft SDKs\Azure',
+            'C:\Miniconda',
+            'C:\Julia',
+            'C:\Program Files\MongoDB',
+            'C:\Program Files\PostgreSQL',
+            'C:\hostedtoolcache\windows\CodeQL',
+            'C:\hostedtoolcache\windows\Ruby',
+            'C:\hostedtoolcache\windows\go',
+            'C:\hostedtoolcache\windows\node',
+            "$env:LOCALAPPDATA\Temp\chocolatey"
+          )
+          foreach ($path in $paths) {
             if (Test-Path $path) {
               Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue
             }
           }
-          Get-PSDrive -PSProvider FileSystem
+          Get-PSDrive -PSProvider FileSystem |
+            Where-Object { $_.Free -ne $null } |
+            Select-Object Name,
+              @{n='UsedGB';e={[math]::Round($_.Used/1GB,1)}},
+              @{n='FreeGB';e={[math]::Round($_.Free/1GB,1)}}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
       - name: Restore ThirdParty cache
         uses: actions/cache/restore@v4
@@ -260,7 +278,24 @@ jobs:
           TG190X4_ENABLE_AUTOUPDATE: "ON"
           TG190X4_UPDATE_PREFIX: ${{ env.UPDATE_PREFIX }}
           TG190X4_BUILD_PARALLEL: "4"
+          TG190X4_EXTRA_DEFINES: -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=
         run: call build_tg190x4.bat
+
+      - name: Report free space
+        if: always()
+        shell: pwsh
+        run: |
+          Get-PSDrive -PSProvider FileSystem |
+            Where-Object { $_.Free -ne $null } |
+            Select-Object Name,
+              @{n='UsedGB';e={[math]::Round($_.Used/1GB,1)}},
+              @{n='FreeGB';e={[math]::Round($_.Free/1GB,1)}}
+          $out = Join-Path $env:TBUILD "$env:REPO_DIR\out"
+          if (Test-Path $out) {
+            $sum = (Get-ChildItem $out -Recurse -Force -ErrorAction SilentlyContinue |
+              Measure-Object -Sum Length).Sum
+            'out/ = {0:N1} GB' -f ($sum / 1GB)
+          }
 
       - name: Drop the signing keys
         if: always()
