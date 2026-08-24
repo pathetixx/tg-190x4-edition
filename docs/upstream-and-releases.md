@@ -5,25 +5,53 @@ The fork tracks Telegram Desktop in two separate ways:
 - `dev` is the integration stream. It is useful for resolving fork conflicts early, but it is not a release version by itself.
 - `vX.Y.Z` tags are the stable stream. A stable fork release should be based on a Telegram tag and should keep the same Telegram version in `Telegram/build/version`.
 
-Preview the current integration delta:
+The fork is developed on the VPS clone in `/root/tg190x4`; nothing is built or
+merged on a Windows machine any more. A blobless clone is enough, submodules are
+only needed by the build and the build runs in Actions:
 
-```powershell
-pwsh -File scripts/sync_upstream.ps1 -Ref dev
+```bash
+git clone --filter=blob:none https://github.com/pathetixx/tg-190x4-edition.git
 ```
 
 Preview the newest stable tag:
 
-```powershell
-pwsh -File scripts/sync_upstream.ps1 -LatestStable
+```bash
+scripts/sync_upstream.sh
 ```
 
-Apply a merge only from a clean worktree:
+Merge it:
 
-```powershell
-pwsh -File scripts/sync_upstream.ps1 -Ref dev -Apply
+```bash
+scripts/sync_upstream.sh --ref v7.1.1 --apply
 ```
 
-The script creates a separate `sync/upstream/...` branch, enables Git rerere, aborts on conflicts, and runs the fork invariant checks before committing. Conflicts in fork code remain a deliberate maintainer decision; they are not silently overwritten.
+The script creates a `sync/upstream/...` branch and leaves conflicts in the
+worktree. It does not abort on them on purpose: every sync so far conflicted in
+fork code, and deciding those cases is the work. `scripts/sync_upstream.ps1` is
+the older Windows-only version and aborts instead, which made it unusable as an
+apply step.
+
+Two recurring conflicts are worth knowing in advance. `Telegram/Resources/winrc/*.rc`
+conflicts every time because upstream bumps the version and the fork keeps its
+branding there; resolve as fork branding plus the upstream version. Files under
+`.github/workflows/` come back as deleted-by-us because the fork removed the
+upstream workflows; keep them deleted.
+
+After resolving, run both checks:
+
+```bash
+python tools/verify_private_fork.py --require-autoupdate
+python tools/check_merge_artifacts.py <fork ref before the merge> <upstream tag>
+```
+
+The second one exists because the dangerous merge results are the ones git
+produces without a conflict. When both sides add the same declaration, git keeps
+both copies and only the compiler complains, an hour into the build. The same
+applies in reverse: upstream removing an enum value that fork code still uses
+merges cleanly and fails to compile.
+
+Push the branch and run the `Windows x64` workflow on it. Fast-forward `main`
+once it is green, then tag.
 
 The Windows installer is per-user and is registered by Inno Setup in the current user's installed-programs list. It installs to the existing user-data-compatible location so the built-in updater can replace files without requiring administrator rights. The portable ZIP remains a separate artifact.
 
