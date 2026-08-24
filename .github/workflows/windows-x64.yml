@@ -8,6 +8,11 @@ on:
     tags:
       - 'ayugram-v*'
   workflow_dispatch:
+    inputs:
+      libraries_only:
+        description: 'Only build the third-party libraries, to warm the cache'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -171,6 +176,7 @@ jobs:
   build:
     name: Build client
     needs: libraries
+    if: ${{ !inputs.libraries_only }}
     runs-on: windows-2022
     timeout-minutes: 350
     steps:
