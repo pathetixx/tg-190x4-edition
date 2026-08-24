@@ -431,6 +431,9 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/ayugram-v')
     runs-on: windows-2022
     timeout-minutes: 60
+    # Holds UPDATES_REPO_TOKEN and is restricted to ayugram-v* tags, so no
+    # other job in the repository can read it.
+    environment: release
     permissions:
       contents: write
     steps:
