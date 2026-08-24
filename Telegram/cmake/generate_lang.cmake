@@ -33,7 +33,10 @@ function(generate_lang target_name lang_file src_loc)
     )
     generate_target(${target_name} lang ${gen_timestamp} "${gen_files}" ${gen_dst})
 
-    if (NOT CMAKE_GENERATOR MATCHES "Visual Studio|Xcode")
+    # The subset scanner only recognises keys with the upstream lng_ prefix,
+    # so the fork's ayu_ keys never reach any subset and fail to compile.
+    if (NOT CMAKE_GENERATOR MATCHES "Visual Studio|Xcode"
+            AND NOT TG190X4_DISABLE_LANG_SUBSETS)
         file(GLOB_RECURSE lang_sources CONFIGURE_DEPENDS
             ${src_loc}/*.cpp
             ${src_loc}/*.h
