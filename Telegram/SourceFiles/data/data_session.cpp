@@ -379,9 +379,11 @@ Session::Session(not_null<Main::Session*> session)
 		notifyUnreadBadgeChanged();
 	}, _lifetime);
 
-	base::options::lookup<bool>(
-		Dialogs::kOptionDialogsUnreadOnTop
-	).changes() | rpl::on_next([=] {
+	const auto &unreadOnTop = base::options::lookup<bool>(
+		Dialogs::kOptionDialogsUnreadOnTop);
+	_dialogsUnreadOnTop = unreadOnTop.value();
+	unreadOnTop.changes() | rpl::on_next([=, &unreadOnTop] {
+		_dialogsUnreadOnTop = unreadOnTop.value();
 		refreshChatListUnreadOnTop();
 	}, _lifetime);
 
@@ -1885,7 +1887,6 @@ void Session::setupChannelLeavingViewer() {
 		} else {
 			if (const auto history = historyLoaded(channel->id)) {
 				history->removeJoinedMessage();
-				history->clear(History::ClearType::Unload);
 				history->updateChatListExistence();
 				history->updateChatListSortPosition();
 				if (!history->inChatList()) {
@@ -3229,8 +3230,13 @@ void Session::scheduleNextTTLs() {
 	const auto now = base::unixtime::now();
 
 	// Set timer not more than for 24 hours.
-	const auto maxTimeout = TimeId(86400);
-	const auto timeout = std::min(std::max(now, nearest) - now, maxTimeout);
+	//
+	// In 64-bit and floored at zero: after the OS corrects a badly wrong
+	// clock unixtime::now() can come back wrapped, and the int32 subtraction
+	// then overflows into a negative interval, which base::Timer asserts on.
+	const auto maxTimeout = crl::time(86400);
+	const auto delay = crl::time(nearest) - crl::time(now);
+	const auto timeout = std::min(std::max(delay, crl::time(0)), maxTimeout);
 	_ttlCheckTimer.callOnce(timeout * crl::time(1000));
 }
 
@@ -5744,9 +5750,9 @@ void Session::refreshChatListEntry(Dialogs::Key key) {
 		if (!id) {
 			continue;
 		}
-		const auto filterList = chatsFilters().chatsList(id);
 		auto event = ChatListEntryRefresh{ .key = key, .filterId = id };
 		if (filter.contains(history)) {
+			const auto filterList = chatsFilters().chatsList(id);
 			event.existenceChanged = !entry->inChatList(id);
 			if (event.existenceChanged) {
 				entry->addToChatList(id, filterList);
@@ -5754,7 +5760,7 @@ void Session::refreshChatListEntry(Dialogs::Key key) {
 				event.moved = entry->adjustByPosInChatList(id, filterList);
 			}
 		} else if (entry->inChatList(id)) {
-			entry->removeFromChatList(id, filterList);
+			entry->removeFromChatList(id, chatsFilters().chatsList(id));
 			event.existenceChanged = true;
 		}
 		if (event) {
