@@ -106,6 +106,8 @@ Next steps:
   3. python tools/check_merge_artifacts.py $current $ref
      Both sides adding the same declaration merges without a conflict and
      only fails at compile time.
-  4. git commit, push the branch and run the Windows x64 workflow on it.
-  5. Fast-forward main once the workflow is green, then tag ayugram-$ref.
+  4. Write docs/release-notes/<version>.md and commit everything.
+  5. Fast-forward main, push it, then run the Windows x64 workflow on main
+     with the publish input enabled. One run builds, tags and publishes;
+     nothing is tagged if the build fails.
 NEXT

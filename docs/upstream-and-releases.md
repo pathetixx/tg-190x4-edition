@@ -50,8 +50,10 @@ both copies and only the compiler complains, an hour into the build. The same
 applies in reverse: upstream removing an enum value that fork code still uses
 merges cleanly and fails to compile.
 
-Push the branch and run the `Windows x64` workflow on it. Fast-forward `main`
-once it is green, then tag.
+Fast-forward `main`, then run the workflow on `main` with `publish` enabled.
+One run builds, packages, tags and publishes. Run it with `libraries_only`
+afterwards if upstream changed `prepare.py`, so the `main` cache matches the
+new libraries.
 
 The Windows installer is per-user and is registered by Inno Setup in the current user's installed-programs list. It installs to the existing user-data-compatible location so the built-in updater can replace files without requiring administrator rights. The portable ZIP remains a separate artifact.
 
@@ -67,18 +69,23 @@ The workflow is split so that a failed stage can be re-run on its own:
 - `build` — configures and compiles the client with auto-update enabled and
   uploads `TG190x4.exe`, `Updater.exe` and `Packer.exe`.
 - `package` — builds the installer and the portable archive with checksums.
-- `publish` — creates the GitHub release and publishes the update package. Runs
-  only for `ayugram-v*` tags.
+- `publish` — tags the commit, creates the GitHub release and publishes the
+  update package.
 
-`workflow_dispatch` runs everything except `publish`, which is the way to check a
-branch before tagging it.
+`workflow_dispatch` has two inputs:
 
-Release notes are taken from the annotated tag, and `publish` fails if the tag
-carries none or if the tag does not match `AppVersionStr`:
+- `libraries_only` builds and caches the third-party libraries and stops there.
+  Run it on `main` after a merge so the default branch cache stays current:
+  every other ref, tags included, can restore the default branch cache but not
+  each other's.
+- `publish` tags the commit and publishes once the build is green. This is the
+  normal way to release — one run builds, packages, tags and publishes, and
+  nothing is tagged if the build fails.
 
-```bash
-git tag -a ayugram-v7.1.1 -m "..." && git push origin ayugram-v7.1.1
-```
+Release notes live in `docs/release-notes/<version>.md` and are committed with
+the merge. The workflow refuses to publish without them. Pushing an
+`ayugram-v*` tag by hand still works and takes its notes from the tag
+annotation, but it costs a second full build, so prefer the input.
 
 Auto-update is enabled by passing `TG190X4_ENABLE_AUTOUPDATE=ON` together with
 `TG190X4_UPDATE_PREFIX` to `build_tg190x4.bat`. The prefix must not end with a

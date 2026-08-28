@@ -13,6 +13,10 @@ on:
         description: 'Only build the third-party libraries, to warm the cache'
         type: boolean
         default: false
+      publish:
+        description: 'Tag this commit and publish the release when the build is green'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -428,7 +432,7 @@ jobs:
   publish:
     name: Publish release and update
     needs: package
-    if: startsWith(github.ref, 'refs/tags/ayugram-v')
+    if: ${{ startsWith(github.ref, 'refs/tags/ayugram-v') || inputs.publish }}
     runs-on: windows-2022
     timeout-minutes: 60
     # Holds UPDATES_REPO_TOKEN and is restricted to ayugram-v* tags, so no
@@ -442,18 +446,39 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Read version
+      - name: Read version and notes
         shell: bash
         run: |
           version=$(sed -n 's/^AppVersionStr[[:space:]]\+\(.*\)$/\1/p' \
             Telegram/build/version | tr -d '[:space:]')
           echo "TG190X4_VERSION=$version" >> $GITHUB_ENV
-          tag="${GITHUB_REF#refs/tags/}"
-          echo "TG190X4_TAG=$tag" >> $GITHUB_ENV
-          if [ "$tag" != "ayugram-v$version" ]; then
-            echo "Tag $tag does not match version $version." >&2
+          echo "TG190X4_TAG=ayugram-v$version" >> $GITHUB_ENV
+          if [ "${GITHUB_REF}" != "${GITHUB_REF#refs/tags/}" ]; then
+            tag="${GITHUB_REF#refs/tags/}"
+            if [ "$tag" != "ayugram-v$version" ]; then
+              echo "Tag $tag does not match version $version." >&2
+              exit 1
+            fi
+            git tag -l --format='%(contents)' "$tag" > release-notes.md
+          else
+            cp "docs/release-notes/$version.md" release-notes.md
+          fi
+          if [ ! -s release-notes.md ]; then
+            echo "No release notes for $version." >&2
             exit 1
           fi
+
+      - name: Create the tag
+        if: ${{ !startsWith(github.ref, 'refs/tags/ayugram-v') }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email \
+            '41898282+github-actions[bot]@users.noreply.github.com'
+          git tag -a "$TG190X4_TAG" -F release-notes.md
+          git push origin "$TG190X4_TAG"
 
       - name: Download client
         uses: actions/download-artifact@v4
@@ -472,12 +497,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          notes=$(git tag -l --format='%(contents)' "$TG190X4_TAG")
-          if [ -z "$notes" ]; then
-            echo "Tag $TG190X4_TAG carries no release notes." >&2
-            exit 1
-          fi
-          printf '%s\n' "$notes" > release-notes.md
           gh release create "$TG190X4_TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --title "TG 190x4 EDITION $TG190X4_VERSION" \
