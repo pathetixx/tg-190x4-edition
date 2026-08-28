@@ -477,8 +477,13 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email \
             '41898282+github-actions[bot]@users.noreply.github.com'
-          git tag -a "$TG190X4_TAG" -F release-notes.md
-          git push origin "$TG190X4_TAG"
+          if git ls-remote --exit-code --tags origin "$TG190X4_TAG" \
+              >/dev/null 2>&1; then
+            echo "Tag $TG190X4_TAG already exists, leaving it alone."
+          else
+            git tag -a "$TG190X4_TAG" -F release-notes.md
+            git push origin "$TG190X4_TAG"
+          fi
 
       - name: Download client
         uses: actions/download-artifact@v4
@@ -497,13 +502,31 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "$TG190X4_TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "TG 190x4 EDITION $TG190X4_VERSION" \
-            --notes-file release-notes.md \
-            artifacts/TG190x4-setup-x64-*.exe \
-            artifacts/TG190x4-portable-x64-*.zip \
+          assets=(
+            artifacts/TG190x4-setup-x64-*.exe
+            artifacts/TG190x4-portable-x64-*.zip
             artifacts/SHA256SUMS.txt
+          )
+          # Re-running this job after a later step failed must not trip over
+          # the release it already created.
+          if gh release view "$TG190X4_TAG" --repo "$GITHUB_REPOSITORY" \
+              >/dev/null 2>&1; then
+            echo "Release exists, replacing its assets."
+            gh release edit "$TG190X4_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "TG 190x4 EDITION $TG190X4_VERSION" \
+              --notes-file release-notes.md
+            gh release upload "$TG190X4_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --clobber \
+              "${assets[@]}"
+          else
+            gh release create "$TG190X4_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "TG 190x4 EDITION $TG190X4_VERSION" \
+              --notes-file release-notes.md \
+              "${assets[@]}"
+          fi
 
       - name: Publish update package
         shell: pwsh
