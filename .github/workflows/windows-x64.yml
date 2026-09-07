@@ -17,6 +17,10 @@ on:
         description: 'Tag this commit and publish the release when the build is green'
         type: boolean
         default: false
+      from_run:
+        description: 'Publish the artifacts of this earlier run instead of building again'
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -32,6 +36,7 @@ env:
 jobs:
   verify-fork:
     name: Verify fork identity
+    if: ${{ !inputs.from_run }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -49,7 +54,7 @@ jobs:
   libraries:
     name: Third-party libraries
     needs: verify-fork
-    if: github.event_name != 'pull_request'
+    if: ${{ github.event_name != 'pull_request' && !inputs.from_run }}
     runs-on: windows-2022
     timeout-minutes: 350
     outputs:
@@ -180,7 +185,7 @@ jobs:
   build:
     name: Build client
     needs: libraries
-    if: ${{ !inputs.libraries_only }}
+    if: ${{ !inputs.libraries_only && !inputs.from_run }}
     runs-on: windows-2022
     timeout-minutes: 350
     steps:
@@ -377,6 +382,7 @@ jobs:
   package:
     name: Package installer
     needs: build
+    if: ${{ !inputs.from_run }}
     runs-on: windows-2022
     timeout-minutes: 60
     steps:
@@ -432,7 +438,11 @@ jobs:
   publish:
     name: Publish release and update
     needs: package
-    if: ${{ startsWith(github.ref, 'refs/tags/ayugram-v') || inputs.publish }}
+    # from_run publishes an earlier build, so package is skipped and its
+    # result must not gate this job.
+    if: ${{ !cancelled()
+      && (needs.package.result == 'success' || inputs.from_run)
+      && (startsWith(github.ref, 'refs/tags/ayugram-v') || inputs.publish) }}
     runs-on: windows-2022
     timeout-minutes: 60
     # Holds UPDATES_REPO_TOKEN and is restricted to ayugram-v* tags, so no
@@ -440,7 +450,29 @@ jobs:
     environment: release
     permissions:
       contents: write
+      actions: read
     steps:
+      - name: Resolve the build to publish
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -n "${{ inputs.from_run }}" ]; then
+            run_id="${{ inputs.from_run }}"
+            info=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id")
+            conclusion=$(jq -r '.conclusion' <<<"$info")
+            sha=$(jq -r '.head_sha' <<<"$info")
+            if [ "$conclusion" != "success" ]; then
+              echo "Run $run_id finished as $conclusion, refusing to publish it." >&2
+              exit 1
+            fi
+          else
+            run_id="$GITHUB_RUN_ID"
+            sha="$GITHUB_SHA"
+          fi
+          echo "TG190X4_RUN_ID=$run_id" >> $GITHUB_ENV
+          echo "TG190X4_SOURCE_SHA=$sha" >> $GITHUB_ENV
+
       - name: Checkout
         uses: actions/checkout@v7
         with:
@@ -449,8 +481,15 @@ jobs:
       - name: Read version and notes
         shell: bash
         run: |
-          version=$(sed -n 's/^AppVersionStr[[:space:]]\+\(.*\)$/\1/p' \
-            Telegram/build/version | tr -d '[:space:]')
+          # The binaries come from TG190X4_SOURCE_SHA, so the version has to be
+          # read there too; the notes are taken from the checked out branch so
+          # they can still be corrected after the build.
+          if ! git cat-file -e "$TG190X4_SOURCE_SHA^{commit}" 2>/dev/null; then
+            git fetch --no-tags origin "$TG190X4_SOURCE_SHA"
+          fi
+          version=$(git show "$TG190X4_SOURCE_SHA:Telegram/build/version" \
+            | sed -n 's/^AppVersionStr[[:space:]]\+\(.*\)$/\1/p' \
+            | tr -d '[:space:]')
           echo "TG190X4_VERSION=$version" >> $GITHUB_ENV
           echo "TG190X4_TAG=ayugram-v$version" >> $GITHUB_ENV
           if [ "${GITHUB_REF}" != "${GITHUB_REF#refs/tags/}" ]; then
@@ -481,7 +520,7 @@ jobs:
               >/dev/null 2>&1; then
             echo "Tag $TG190X4_TAG already exists, leaving it alone."
           else
-            git tag -a "$TG190X4_TAG" -F release-notes.md
+            git tag -a "$TG190X4_TAG" "$TG190X4_SOURCE_SHA" -F release-notes.md
             git push origin "$TG190X4_TAG"
           fi
 
@@ -490,12 +529,16 @@ jobs:
         with:
           name: client-${{ env.TG190X4_VERSION }}
           path: out/Release
+          run-id: ${{ env.TG190X4_RUN_ID }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download installer
         uses: actions/download-artifact@v8
         with:
           name: installer-${{ env.TG190X4_VERSION }}
           path: artifacts
+          run-id: ${{ env.TG190X4_RUN_ID }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create release
         shell: bash

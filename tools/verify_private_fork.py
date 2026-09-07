@@ -39,6 +39,8 @@ def main():
     packer = read("Telegram/SourceFiles/_other/packer.cpp")
     app_resource = read("Telegram/Resources/winrc/Telegram.rc")
     updater_resource = read("Telegram/Resources/winrc/Updater.rc")
+    update_checker = read("Telegram/SourceFiles/core/update_checker.cpp")
+    main_window = read("Telegram/SourceFiles/window/main_window.cpp")
 
     required_setup = (
         ('#define MyAppName "TG 190x4 EDITION"', "installer name"),
@@ -70,7 +72,40 @@ def main():
     if re.search(r"TDESKTOP_API_(?:ID|HASH)=\s*(?:2040|b18441a1ff607e10a989891a5462e627)", build_script, re.IGNORECASE):
         errors.append("Build script contains the public Telegram bootstrap credentials")
 
+    if 'VALUE "CompanyName", "190x4"' not in app_resource:
+        errors.append("Windows application CompanyName is not 190x4")
+    if "tsetup" in setup:
+        errors.append("Installer output name fell back to the upstream tsetup prefix")
+    if 'MyOutputBaseFilename "tg190x4setup-x64." + MyAppVersionFull' not in setup:
+        errors.append("Installer x64 output name is not tg190x4setup-x64")
+    if 'set(TG190X4_UPDATE_PREFIX' not in cmake:
+        errors.append("CMake no longer defines TG190X4_UPDATE_PREFIX")
+    if "TG190X4_BUILD_PACKER" not in cmake:
+        errors.append("CMake no longer builds Packer through TG190X4_BUILD_PACKER")
+    if '#include "packer_private.h"' not in packer:
+        errors.append("Packer does not include the fork private key header")
+    if "DesktopPrivate" in packer.replace("// V2 packing needs no DesktopPrivate keys", ""):
+        errors.append("Packer points at the upstream DesktopPrivate key location")
+    if "make_unique<MtpChecker>" in update_checker:
+        errors.append("Update checker starts the upstream MTP checker")
+    if "https://github.com/pathetixx/tg-190x4-edition/releases" not in update_checker:
+        errors.append("Manual update link does not point at the fork releases")
+    if 'u"AyuGram"_q' not in main_window:
+        errors.append("Window title lost the fork branding")
+
+    workflows = sorted(
+        path.name for path in (ROOT / ".github/workflows").glob("*.yml"))
+    if workflows != ["windows-x64.yml"]:
+        unexpected = [name for name in workflows if name != "windows-x64.yml"]
+        errors.append(f"Unexpected workflows in the fork: {', '.join(unexpected)}")
+
     if require_autoupdate:
+        signature_lengths = re.findall(r"hSigLen = (\d+)", update_checker)
+        if not signature_lengths:
+            errors.append("Update checker no longer defines hSigLen")
+        elif set(signature_lengths) != {"256"}:
+            errors.append(
+                "Update checker expects an RSA-1024 signature, the fork signs with RSA-2048")
         if "update.ayugram.one" in localstorage:
             errors.append("Auto-update still points to the legacy AyuGram endpoint")
         official_key_marker = "MIGJAoGBAOIENxe1sfT2t7b+HUMpnT6RnN/sCqY0JjK7/1A/59daDc6i/K4023jw"
@@ -78,6 +113,20 @@ def main():
             errors.append("Auto-update still uses the official Telegram signing key")
 
     versions = version_values()
+    if versions is not None:
+        dotted = versions["header_string"] + ".0"
+        comma = dotted.replace(".", ",")
+        for label, resource in (
+                ("Telegram.rc", app_resource),
+                ("Updater.rc", updater_resource)):
+            if f"FILEVERSION {comma}" not in resource:
+                errors.append(f"{label} FILEVERSION is not {comma}")
+            if f"PRODUCTVERSION {comma}" not in resource:
+                errors.append(f"{label} PRODUCTVERSION is not {comma}")
+            if f'VALUE "FileVersion", "{dotted}"' not in resource:
+                errors.append(f"{label} FileVersion is not {dotted}")
+            if f'VALUE "ProductVersion", "{dotted}"' not in resource:
+                errors.append(f"{label} ProductVersion is not {dotted}")
     if versions is None:
         errors.append("Could not parse the generated version files")
     elif versions["build_number"] != versions["header_number"]:
