@@ -507,6 +507,22 @@ jobs:
             exit 1
           fi
 
+      - name: Download client
+        uses: actions/download-artifact@v8
+        with:
+          name: client-${{ env.TG190X4_VERSION }}
+          path: out/Release
+          run-id: ${{ env.TG190X4_RUN_ID }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download installer
+        uses: actions/download-artifact@v8
+        with:
+          name: installer-${{ env.TG190X4_VERSION }}
+          path: artifacts
+          run-id: ${{ env.TG190X4_RUN_ID }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create the tag
         if: ${{ !startsWith(github.ref, 'refs/tags/ayugram-v') }}
         shell: bash
@@ -523,22 +539,6 @@ jobs:
             git tag -a "$TG190X4_TAG" "$TG190X4_SOURCE_SHA" -F release-notes.md
             git push origin "$TG190X4_TAG"
           fi
-
-      - name: Download client
-        uses: actions/download-artifact@v8
-        with:
-          name: client-${{ env.TG190X4_VERSION }}
-          path: out/Release
-          run-id: ${{ env.TG190X4_RUN_ID }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Download installer
-        uses: actions/download-artifact@v8
-        with:
-          name: installer-${{ env.TG190X4_VERSION }}
-          path: artifacts
-          run-id: ${{ env.TG190X4_RUN_ID }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create release
         shell: bash
