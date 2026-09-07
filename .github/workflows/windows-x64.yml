@@ -36,10 +36,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
@@ -64,13 +64,13 @@ jobs:
           echo LIBRARIES_PATH=%GITHUB_WORKSPACE%\TBuild\Libraries\win64>>%GITHUB_ENV%
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           path: TBuild/tg-190x4-edition
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
@@ -87,7 +87,7 @@ jobs:
           echo "CACHE_KEY=$value" >> $GITHUB_ENV
 
       - name: Restore ThirdParty cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: ${{ env.TBUILD }}\ThirdParty
           key: third-party-${{ env.CACHE_KEY }}-
@@ -96,7 +96,7 @@ jobs:
             third-party-
 
       - name: Restore Qt cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: |
             ${{ env.LIBRARIES_PATH }}\[qQ]t[_-]*
@@ -107,7 +107,7 @@ jobs:
             qt-
 
       - name: Restore libraries cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: |
             ${{ env.LIBRARIES_PATH }}\*
@@ -149,7 +149,7 @@ jobs:
       - name: Save ThirdParty cache
         if: always()
         continue-on-error: true
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ${{ env.TBUILD }}\ThirdParty
           key: third-party-${{ env.CACHE_KEY }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -157,7 +157,7 @@ jobs:
       - name: Save Qt cache
         if: always()
         continue-on-error: true
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: |
             ${{ env.LIBRARIES_PATH }}\[qQ]t[_-]*
@@ -167,7 +167,7 @@ jobs:
       - name: Save libraries cache
         if: always()
         continue-on-error: true
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: |
             ${{ env.LIBRARIES_PATH }}\*
@@ -194,7 +194,7 @@ jobs:
           echo CACHE_KEY=${{ needs.libraries.outputs.cache-key }}>>%GITHUB_ENV%
 
       - name: Checkout with submodules
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
           fetch-depth: 1
@@ -229,7 +229,7 @@ jobs:
               @{n='FreeGB';e={[math]::Round($_.Free/1GB,1)}}
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
@@ -255,7 +255,7 @@ jobs:
             Select-Object Name, InitialSize, MaximumSize
 
       - name: Restore ThirdParty cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: ${{ env.TBUILD }}\ThirdParty
           key: third-party-${{ env.CACHE_KEY }}-
@@ -264,7 +264,7 @@ jobs:
             third-party-
 
       - name: Restore Qt cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: |
             ${{ env.LIBRARIES_PATH }}\[qQ]t[_-]*
@@ -275,7 +275,7 @@ jobs:
             qt-
 
       - name: Restore libraries cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: |
             ${{ env.LIBRARIES_PATH }}\*
@@ -363,7 +363,7 @@ jobs:
           }
 
       - name: Upload client
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: client-${{ env.TG190X4_VERSION }}
           path: |
@@ -381,7 +381,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
 
@@ -393,7 +393,7 @@ jobs:
           echo "TG190X4_VERSION=$version" >> $GITHUB_ENV
 
       - name: Download client
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: client-${{ env.TG190X4_VERSION }}
           path: out/Release
@@ -419,7 +419,7 @@ jobs:
             Select-Object Name, Length
 
       - name: Upload installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: installer-${{ env.TG190X4_VERSION }}
           path: |
@@ -442,7 +442,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -486,13 +486,13 @@ jobs:
           fi
 
       - name: Download client
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: client-${{ env.TG190X4_VERSION }}
           path: out/Release
 
       - name: Download installer
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: installer-${{ env.TG190X4_VERSION }}
           path: artifacts
