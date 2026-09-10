@@ -13,8 +13,12 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 MOD_PATH = "Telegram/SourceFiles/ayu"
+VENDORED = ":(exclude)Telegram/SourceFiles/ayu/libs"
 SEARCH_PATHS = ("Telegram/SourceFiles", "Telegram/Resources")
 IDENTIFIER = re.compile(r"\b[A-Za-z_][A-Za-z0-9_]{4,}\b")
+LINE_COMMENT = re.compile(r"//.*")
+BLOCK_COMMENT = re.compile(r"/\*.*?\*/")
+COMMENT_LINE = re.compile(r"\s*(\*|/\*|//)")
 
 
 def git(*args):
@@ -26,19 +30,26 @@ def git(*args):
     return result.stdout
 
 
+def code_only(line):
+    """Prose in a comment is not a symbol reference; the regex cannot tell."""
+    if COMMENT_LINE.match(line):
+        return ""
+    return LINE_COMMENT.sub("", BLOCK_COMMENT.sub("", line))
+
+
 def removed_identifiers(base, upstream):
     diff = git("diff", "-U0", base, upstream, "--", *SEARCH_PATHS)
     removed, added = set(), set()
     for line in diff.splitlines():
         if line.startswith("-") and not line.startswith("---"):
-            removed |= set(IDENTIFIER.findall(line))
+            removed |= set(IDENTIFIER.findall(code_only(line[1:])))
         elif line.startswith("+") and not line.startswith("+++"):
-            added |= set(IDENTIFIER.findall(line))
+            added |= set(IDENTIFIER.findall(code_only(line[1:])))
     return removed - added
 
 
 def mod_identifiers():
-    listing = git("grep", "-hIo", "-E", IDENTIFIER.pattern, "--", MOD_PATH)
+    listing = git("grep", "-hIo", "-E", IDENTIFIER.pattern, "--", MOD_PATH, VENDORED)
     return set(listing.split())
 
 
