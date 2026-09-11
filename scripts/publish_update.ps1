@@ -70,13 +70,30 @@ if (-not (Test-Path -LiteralPath $packagePath)) {
 }
 
 $manifest = "{`"win64`":{`"stable`":{`"released`":$versionNumber,`"link`":`"/$packageName`"}}}"
-$manifestPath = Join-Path $OutputPath "current4"
-[System.IO.File]::WriteAllText($manifestPath, $manifest, (New-Object System.Text.UTF8Encoding($false)))
+$manifestVersions = @(4, 6)
+$infoPath = Join-Path $repoRoot "Telegram\lib_base\base\platform\win\base_info_win.cpp"
+if (Test-Path -LiteralPath $infoPath) {
+    $infoText = Get-Content -LiteralPath $infoPath -Raw
+    $updaterMatch = [regex]::Match($infoText, "int AutoUpdateVersion\(\)\s*\{\s*return\s+(\d+)\s*;")
+    if (-not $updaterMatch.Success) {
+        throw "Could not read AutoUpdateVersion() from $infoPath."
+    }
+    $updaterVersion = [int]$updaterMatch.Groups[1].Value
+    if ($manifestVersions -notcontains $updaterVersion) {
+        throw "Clients of this build ask for current$updaterVersion, add it to `$manifestVersions."
+    }
+}
+$manifestPaths = @()
+foreach ($manifestVersion in $manifestVersions) {
+    $manifestPath = Join-Path $OutputPath "current$manifestVersion"
+    [System.IO.File]::WriteAllText($manifestPath, $manifest, (New-Object System.Text.UTF8Encoding($false)))
+    $manifestPaths += $manifestPath
+}
 
 $packageSize = [math]::Round((Get-Item -LiteralPath $packagePath).Length / 1MB, 1)
 Write-Host ""
 Write-Host "Package:  $packagePath ($packageSize MB)"
-Write-Host "Manifest: $manifestPath"
+Write-Host "Manifest: $($manifestPaths -join ', ')"
 Write-Host "Contents: $manifest"
 
 if (-not $Publish) {
@@ -96,10 +113,10 @@ try {
 }
 if ($releaseExists) {
     Write-Host "Updating existing release $tag..."
-    & gh release upload $tag $packagePath $manifestPath --repo $Repo --clobber | Out-Host
+    & gh release upload $tag $packagePath @manifestPaths --repo $Repo --clobber | Out-Host
 } else {
     Write-Host "Creating release $tag..."
-    & gh release create $tag $packagePath $manifestPath `
+    & gh release create $tag $packagePath @manifestPaths `
         --repo $Repo `
         --latest `
         --title "TG 190x4 EDITION $versionString" `

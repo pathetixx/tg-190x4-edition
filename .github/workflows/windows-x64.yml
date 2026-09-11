@@ -205,6 +205,11 @@ jobs:
           fetch-depth: 1
           path: TBuild/tg-190x4-edition
 
+      - name: Check the update manifest names
+        shell: bash
+        working-directory: TBuild/tg-190x4-edition
+        run: python3 tools/check_update_manifest_names.py
+
       - name: Reclaim runner disk space
         shell: pwsh
         run: |
