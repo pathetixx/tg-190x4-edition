@@ -2513,7 +2513,7 @@ void StickerSetBox::Inner::paintSticker(
 
 	if (sticker->setType == Data::StickersType::Stickers) {
 		QPainterPath path;
-		path.addRoundedRect(QRectF(ppos, size), st::stickerRoundingSize, st::stickerRoundingSize);
+		path.addRoundedRect(QRectF(innerPos, size), st::stickerRoundingSize, st::stickerRoundingSize);
 
 		p.save();
 
