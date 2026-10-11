@@ -125,6 +125,22 @@ jobs:
             libs-${{ env.CACHE_KEY }}-
             libs-
 
+      # The client build compiles a source tdesktop_rust generates, and a
+      # rebuild of that stage needs the Rust checkouts. A cache pruned before
+      # they were kept still holds valid keys for all three stages.
+      - name: Rebuild pruned Rust stages
+        shell: bash
+        run: |
+          if [ -f "$LIBRARIES_PATH/cache_keys/tdesktop_rust" ] && {
+              [ ! -f "$LIBRARIES_PATH/tdesktop_rust/out/src/wallet_engine/wallet_engine.cpp" ] ||
+              [ ! -f "$LIBRARIES_PATH/wallet-engine/Cargo.toml" ] ||
+              [ ! -f "$LIBRARIES_PATH/tlottie/Cargo.toml" ]; }; then
+            echo "Rust stages were pruned, rebuilding them."
+            rm -f "$LIBRARIES_PATH/cache_keys/tlottie" \
+              "$LIBRARIES_PATH/cache_keys/wallet-engine" \
+              "$LIBRARIES_PATH/cache_keys/tdesktop_rust"
+          fi
+
       - name: Build libraries
         id: prepare
         timeout-minutes: 290
@@ -146,7 +162,10 @@ jobs:
               -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' \
               -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' \
               -o -path '*/objects-*' -o -path '*/cache_keys/*' \
-              -o -path '*/patches/*' -o -path '*/nv-codec-headers/*' ')' \
+              -o -path '*/patches/*' -o -path '*/nv-codec-headers/*' \
+              -o -path '*/tdesktop_rust/out/*' \
+              -o '(' '(' -path '*/tlottie/*' -o -path '*/wallet-engine/*' ')' \
+                ! -path '*/target/*' ')' ')' \
             -type f ')' -o -empty ')' -delete || true
 
       # Saved even when the step above failed or the job ran out of time, so a
