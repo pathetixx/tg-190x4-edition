@@ -13,10 +13,15 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 import argparse
 import collections
+import re
 import subprocess
 import sys
 
 TRIVIAL = ('{', '}', '};', '', 'return;', 'break;', 'continue;')
+
+# Scope guards are declared once per block, so copies in different functions
+# are expected.
+SCOPE_GUARD = re.compile(r'^auto \w+ = PainterHighQualityEnabler\(\w+\);$')
 
 
 def run(*args):
@@ -39,6 +44,8 @@ def added_lines(base, ref, path):
 def interesting(line):
     stripped = line.strip()
     if len(stripped) < 12 or stripped in TRIVIAL:
+        return False
+    if SCOPE_GUARD.match(stripped):
         return False
     return not (stripped.startswith('//')
                 or stripped.startswith('*')
