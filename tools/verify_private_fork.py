@@ -27,6 +27,13 @@ def version_values():
     }
 
 
+def short_version(value):
+    parts = value.split(".")
+    while len(parts) > 2 and parts[-1] == "0":
+        parts.pop()
+    return ".".join(parts)
+
+
 def main():
     require_autoupdate = "--require-autoupdate" in sys.argv[1:]
     errors = []
@@ -114,7 +121,7 @@ def main():
 
     versions = version_values()
     if versions is not None:
-        dotted = versions["header_string"] + ".0"
+        dotted = versions["build_string"] + ".0"
         comma = dotted.replace(".", ",")
         for label, resource in (
                 ("Telegram.rc", app_resource),
@@ -131,7 +138,7 @@ def main():
         errors.append("Could not parse the generated version files")
     elif versions["build_number"] != versions["header_number"]:
         errors.append("AppVersion differs between Telegram/build/version and core/version.h")
-    elif versions["build_string"] != versions["header_string"]:
+    elif short_version(versions["build_string"]) != short_version(versions["header_string"]):
         errors.append("AppVersionStr differs between Telegram/build/version and core/version.h")
 
     if errors:
