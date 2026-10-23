@@ -1044,7 +1044,9 @@ void PullToNextChannel::pushIndicator() {
 }
 
 bool PullToNextChannel::hintVisible() const {
-	return _holding && (_pull > 0.);
+	return _holding
+		&& (_parent->height() > _scroll->y() + _scroll->height())
+		&& (_pull > 0.);
 }
 
 void PullToNextChannel::updateGeometry() {
@@ -1061,6 +1063,8 @@ void PullToNextChannel::updateGeometry() {
 	if (bottom > top) {
 		_hint->setGeometry(_scroll->x(), top, _scroll->width(), bottom - top);
 		_hint->raise();
+	} else {
+		_hint->hideNow();
 	}
 }
 

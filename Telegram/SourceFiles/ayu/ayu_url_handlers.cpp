@@ -233,4 +233,39 @@ bool TryHandleSpotify(const QString &url) {
 	return false;
 }
 
+bool IsWebUrl(const QUrl &url) {
+	const auto scheme = url.scheme().toLower();
+	return (scheme == u"http"_q) || (scheme == u"https"_q);
+}
+
+bool IsUnsafeExternalUrl(const QString &url) {
+	static const auto kBlocked = base::flat_set<QString>{
+		u"file"_q,
+		u"smb"_q,
+		u"nfs"_q,
+		u"afp"_q,
+		u"cifs"_q,
+		u"dav"_q,
+		u"davs"_q,
+		u"webdav"_q,
+		u"search"_q,
+		u"search-ms"_q,
+		u"shell"_q,
+		u"javascript"_q,
+		u"vbscript"_q,
+		u"jar"_q,
+		u"jnlp"_q,
+		u"jnlps"_q,
+		u"mk"_q,
+		u"its"_q,
+		u"mhtml"_q,
+		u"hcp"_q,
+		u"res"_q,
+	};
+	const auto scheme = QUrl(url).scheme().toLower();
+	return (scheme.size() < 2)
+		|| kBlocked.contains(scheme)
+		|| scheme.startsWith(u"ms-"_q);
+}
+
 }

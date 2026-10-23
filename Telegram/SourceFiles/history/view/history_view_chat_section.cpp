@@ -770,20 +770,19 @@ ChatWidget::ChatWidget(
 				}
 			}
 			if (action.options.scheduled) {
-				const auto &ghost = AyuSettings::ghost(&session());
-				if (!ghost.isUseScheduledMessages()) {
-					if (_topic) {
-						crl::on_main(this, [=, t = _topic] {
-							controller->showSection(
-								std::make_shared<HistoryView::ScheduledMemento>(t));
-						});
-					} else if (mode() == Mode::History) {
-						crl::on_main(this, [=, history = action.history] {
-							controller->showSection(
-								std::make_shared<HistoryView::ScheduledMemento>(
-									history));
-						});
-					}
+				if (AyuSettings::ghost(&session()).isUseScheduledMessages()) {
+					_composeControls->cancelReplyMessage();
+				} else if (_topic) {
+					crl::on_main(this, [=, t = _topic] {
+						controller->showSection(
+							std::make_shared<HistoryView::ScheduledMemento>(t));
+					});
+				} else if (mode() == Mode::History) {
+					crl::on_main(this, [=, history = action.history] {
+						controller->showSection(
+							std::make_shared<HistoryView::ScheduledMemento>(
+								history));
+					});
 				}
 			} else {
 				if (mode() == Mode::History) {

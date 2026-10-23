@@ -1352,7 +1352,7 @@ void Updates::applyUpdateNoPtsCheck(const MTPUpdate &update) {
 		auto unknownReadIds = base::flat_set<MsgId>();
 		for (const auto &msgId : d.vmessages().v) {
 			if (const auto item = _session->data().nonChannelMessage(msgId.v)) {
-				if (item->isUnreadMedia() || item->isUnreadMention() || (item->unsupportedTTL() && item->hasUnreadMediaFlag())) {
+				if (item->isUnreadMedia() || item->isUnreadMention()) {
 					item->markMediaAndMentionRead();
 					_session->data().requestItemRepaint(item);
 
@@ -1765,7 +1765,7 @@ void Updates::feedUpdate(const MTPUpdate &update) {
 		auto unknownReadIds = base::flat_set<MsgId>();
 		for (const auto &msgId : d.vmessages().v) {
 			if (auto item = session().data().message(channel->id, msgId.v)) {
-				if (item->isUnreadMedia() || item->isUnreadMention() || (item->unsupportedTTL() && item->hasUnreadMediaFlag())) {
+				if (item->isUnreadMedia() || item->isUnreadMention()) {
 					item->markMediaAndMentionRead();
 					session().data().requestItemRepaint(item);
 					item->applyMediaContentsRead(TimeId(0));

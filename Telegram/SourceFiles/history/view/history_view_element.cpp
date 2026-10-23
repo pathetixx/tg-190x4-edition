@@ -1733,12 +1733,13 @@ bool Element::hasCommentsButton() const {
 }
 
 int Element::skipBlockWidth() const {
-	if (AyuFeatures::MessageShot::ignoreRender(AyuFeatures::MessageShot::RenderPart::Date)) {
-		return st::msgDateDelta.x();
-	}
 	if (hidesBottomInfo()) {
 		return 0;
 	}
+	if (AyuFeatures::MessageShot::ignoreRender(AyuFeatures::MessageShot::RenderPart::Date)) {
+		return st::msgDateDelta.x();
+	}
+
 	return st::msgDateSpace + infoWidth() - st::msgDateDelta.x();
 }
 
@@ -3159,6 +3160,7 @@ void Element::refreshReactions() {
 					if (id.paid() || ranges::contains(chosen, id)) {
 						now->animateReaction({
 							.id = id,
+							.haptic = true,
 						});
 					}
 				}

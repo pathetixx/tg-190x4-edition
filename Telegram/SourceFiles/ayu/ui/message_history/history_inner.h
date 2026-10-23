@@ -112,13 +112,13 @@ public:
 		not_null<DocumentData*> document,
 		FullMsgId context,
 		bool showInMediaView = false) override;
+	bool elementScrollToLocalY(
+		not_null<const HistoryView::Element*> view,
+		int localTop) override;
 	void elementCancelUpload(const FullMsgId &context) override;
 	void elementShowTooltip(
 		const TextWithEntities &text,
 		Fn<void()> hiddenCallback) override;
-	bool elementScrollToLocalY(
-		gsl::not_null<const HistoryView::Element*> view,
-		int localY) override;
 	void elementShowHiddenSenderTooltip(
 		FullMsgId context,
 		const TextWithEntities &text) override;

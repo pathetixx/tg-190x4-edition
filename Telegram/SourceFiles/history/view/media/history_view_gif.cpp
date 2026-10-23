@@ -138,10 +138,10 @@ using ::Media::ValidFrameSize;
 		const auto centerRect = r - centerMargins;
 		const auto &icon = context.imageStyle()->historyVideoMessageTtlIcon;
 		const auto iconRect = QRect(
-			rect::right(centerRect) - icon.width() * 1.2,
-			rect::bottom(centerRect) - icon.height() * 1.2,
-			icon.width() / 3,
-			icon.height() / 3);
+			rect::right(centerRect) - icon.width() * 0.75,
+			rect::bottom(centerRect) - icon.height() * 0.75,
+			icon.width(),
+			icon.height());
 		{
 			auto hq = PainterHighQualityEnabler(p);
 			auto path = QPainterPath();

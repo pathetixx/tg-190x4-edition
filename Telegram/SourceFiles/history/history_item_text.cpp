@@ -129,6 +129,13 @@ HistorySelectedTextParts AppendExtraCopyText(
 	return std::move(result);
 }
 
+TextForMimeData ShownSummaryText(not_null<HistoryItem*> item) {
+	const auto &summary = item->summaryEntry();
+	return (!summary.result.empty() && summary.shown)
+		? TextForMimeData::WithExpandedLinks(summary.result)
+		: TextForMimeData();
+}
+
 TextForMimeData HistoryItemMainText(not_null<HistoryItem*> item) {
 	const auto media = item->media();
 
@@ -570,9 +577,9 @@ TextForMimeData HistorySelectedTextParts::composed(
 }
 
 TextForMimeData HistoryItemText(not_null<HistoryItem*> item) {
-	const auto &summary = item->summaryEntry();
-	if (!summary.result.empty() && summary.shown) {
-		return TextForMimeData::WithExpandedLinks(summary.result);
+	auto summary = ShownSummaryText(item);
+	if (!summary.empty()) {
+		return summary;
 	}
 	return AppendExtraCopyText(item, HistoryItemMainText(item));
 }
@@ -633,6 +640,10 @@ namespace {
 
 HistorySelectedTextParts HistoryItemTextForSelectedCopy(
 		not_null<HistoryItem*> item) {
+	auto summary = ShownSummaryText(item);
+	if (!summary.empty()) {
+		return TextParts(std::move(summary));
+	}
 	const auto media = item->media();
 	if (!media) {
 		return TextParts(HistoryItemText(item));

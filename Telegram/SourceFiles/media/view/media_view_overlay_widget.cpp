@@ -137,6 +137,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <kurlmimedata.h>
 
 // AyuGram includes
+#include "ayu/ayu_settings.h"
 #include "ayu/ayu_state.h"
 #include "ayu/features/streamer_mode/streamer_mode.h"
 
@@ -1354,6 +1355,10 @@ void OverlayWidget::refreshTtlBadge(TimeId destroyAt) {
 						_message->history()->peer->shortName()
 					) | rpl::map(tr::rich),
 					tr::rich)
+			: AyuSettings::getInstance().saveDeletedMessages()
+			? (isVideo
+				? tr::ayu_OnceVideoMessageNote
+				: tr::ayu_OncePhotoMessageNote)(tr::rich)
 			: (isVideo
 				? tr::lng_ttl_video_tooltip_in
 				: tr::lng_ttl_photo_tooltip_in)(tr::rich);
@@ -4542,7 +4547,7 @@ void OverlayWidget::activate() {
 	QApplication::setActiveWindow(_window);
 	setFocus();
 
-	if (AyuFeatures::StreamerMode::isEnabled()) {
+	if (AyuSettings::getInstance().streamerMode()) {
 		AyuFeatures::StreamerMode::hideWidgetWindow(_window);
 	} else {
 		AyuFeatures::StreamerMode::showWidgetWindow(_window);

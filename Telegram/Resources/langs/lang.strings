@@ -9456,7 +9456,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_SettingsShowID_Hide" = "Hide";
 "ayu_SettingsShowMessageShot" = "Show Message Shot";
 "ayu_SettingsShowMessageShotDescription" = "Allows taking a screenshot of the selected messages.";
-"ayu_SettingsRecentStickersCount" = "Recent Stickers Count";
+"ayu_SettingsUnlimitedRecentStickers" = "Unlimited Recent Stickers";
 "ayu_SettingsCustomizationHint" = "You must restart the application after making changes in the \"Customization\" section.";
 "ayu_MaterialSwitches" = "MD3 Switch Style";
 "ayu_RemoveMessageTail" = "Remove Message Tail";
@@ -9573,10 +9573,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_AyuAttachments" = "TG 190x4 Attachments Folder";
 "ayu_AyuDatabase" = "TG 190x4 Messages Database";
 "ayu_TelegramCacheDatabase" = "Telegram Messages Database";
-"ayu_ConfirmationsTitle" = "Confirmations";
-"ayu_StickerConfirmation" = "For Stickers";
-"ayu_GIFConfirmation" = "For GIFs";
-"ayu_VoiceConfirmation" = "For Voice Messages";
+"ayu_ConfirmationsTitle" = "Send Confirmations";
+"ayu_StickerConfirmation" = "Stickers";
+"ayu_GIFConfirmation" = "GIFs";
+"ayu_VoiceConfirmation" = "Voice Messages";
+"ayu_RoundConfirmation" = "Round Videos";
 "ayu_MessageDetailsPC" = "Details";
 "ayu_MessageDetailsViewsPC" = "Views";
 "ayu_MessageDetailsSharesPC" = "Shares";
@@ -9627,6 +9628,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_ExclusionDontType" = "Never Type";
 "ayu_ExclusionAlwaysType" = "Always Type";
 "ayu_PeekOnlineSuccess" = "Peeked via";
+"ayu_PeekOnlineFailed" = "Couldn't peek online";
 "ayu_OneViewTTL" = "one view";
 "ayu_OnePlayTTL" = "one play";
 "ayu_UserMessagesMenuText" = "User Messages";
@@ -9732,6 +9734,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_ConfirmationSticker" = "Do you want to send this sticker?";
 "ayu_ConfirmationGIF" = "Do you want to send this GIF?";
 "ayu_ConfirmationVoice" = "Do you want to send this voice message?";
+"ayu_ConfirmationRound" = "Do you want to send this round video?";
 "ayu_IntroAbout" = "Welcome to TG 190x4 EDITION.\nMake Telegram your own.";
 "ayu_AboutText1" = "ToS breaking Telegram client based on {api_link}.";
 "ayu_UpdateAyuGram" = "Update TG 190x4";

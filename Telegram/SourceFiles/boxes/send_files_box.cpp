@@ -87,7 +87,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 // AyuGram includes
 #include "ayu/ayu_settings.h"
 #include "base/unixtime.h"
-#include "styles/style_menu_icons.h"
 #include "ayu/utils/telegram_helpers.h"
 #include <QApplication>
 #include <QBuffer>
@@ -2892,16 +2891,16 @@ bool SendFilesBox::validateLength(const QString &text) const {
 void SendFilesBox::send(
 		Api::SendOptions options,
 		bool ctrlShiftEnter) {
-	if (options.scheduled
-		&& ranges::any_of(_list.files, &Ui::PreparedFile::ttlSeconds)) {
-		showToast(tr::lng_ttl_no_schedule(tr::now));
-		return;
-	}
 	const auto sumSize = ranges::accumulate(
 		_list.files, int64(0),
 		[](int64 sum, const auto &file) { return sum + file.size; });
 	applyGhostScheduling(&_show->session(), options, getScheduleTime(sumSize));
 
+	if (options.scheduled
+		&& ranges::any_of(_list.files, &Ui::PreparedFile::ttlSeconds)) {
+		showToast(tr::lng_ttl_no_schedule(tr::now));
+		return;
+	}
 	if ((_sendType == Api::SendType::Scheduled
 		|| _sendType == Api::SendType::ScheduledToUser)
 		&& !options.scheduled) {

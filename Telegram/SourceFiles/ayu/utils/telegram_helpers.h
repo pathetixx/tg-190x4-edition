@@ -76,7 +76,6 @@ void MarkAsReadThread(not_null<Data::Thread*> thread);
 void markReadAfterAction(not_null<History*> history);
 void readHistory(not_null<HistoryItem*> message);
 
-QString formatTTL(int time, bool isDoc);
 QString formatDateTime(const QDateTime &date);
 QString formatMessageTime(const QTime &time);
 
@@ -127,4 +126,9 @@ QString getBetterLinkPreview(const QString &url);
 void applyGhostScheduling(
 	not_null<Main::Session*> session,
 	Api::SendOptions &options,
+	int delaySeconds = 12);
+
+void applyGhostScheduling(
+	Api::SendAction &action,
+	const QString &text = QString(),
 	int delaySeconds = 12);

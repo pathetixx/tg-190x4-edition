@@ -2279,7 +2279,6 @@ void SetupDefaultThemes(
 			return;
 		}
 
-
 		const auto scheme = ranges::find(
 			kSchemesList,
 			type,

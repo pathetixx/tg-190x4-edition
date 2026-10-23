@@ -15,6 +15,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/effects/animations.h"
 #include "ui/userpic_view.h"
 
+
 class History;
 class HistoryBlock;
 class HistoryItem;

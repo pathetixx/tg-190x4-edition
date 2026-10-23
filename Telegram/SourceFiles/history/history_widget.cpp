@@ -2651,14 +2651,18 @@ void HistoryWidget::fileChosen(ChatHelpers::FileChosen &&data) {
 							options);
 						return;
 					}
-					controller()->sendingAnimation().appendSending(from);
+					const auto effectiveFrom = options.scheduled
+						? Ui::MessageSendingAnimationFrom()
+						: from;
+					controller()->sendingAnimation().appendSending(
+						effectiveFrom);
 					auto messageToSend = Api::MessageToSend(
 						prepareSendAction(options));
 					messageToSend.textWithTags = std::move(caption);
 					sendExistingDocument(
 						document,
 						std::move(messageToSend),
-						from.localId);
+						effectiveFrom.localId);
 				}));
 			return;
 		}

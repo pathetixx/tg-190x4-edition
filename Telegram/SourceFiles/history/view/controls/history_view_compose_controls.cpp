@@ -142,6 +142,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_layers.h"
 
 // AyuGram includes
+#include "data/data_ai_compose_tones.h"
 #include "ayu/ayu_settings.h"
 #include "history/history_item_components.h"
 
@@ -1431,7 +1432,7 @@ ComposeControls::ComposeControls(
 				updateControlsGeometry(_wrap->size());
 			} else if (_botKeyboardHide && !has) {
 				_botKeyboardHide = nullptr;
-				_tabbedSelectorToggle->show();
+				updateControlsVisibility();
 				updateControlsGeometry(_wrap->size());
 			}
 		}, _wrap->lifetime());
@@ -3067,6 +3068,7 @@ void ComposeControls::init() {
 		AyuSettings::getInstance().showEmojiButtonInMessageFieldChanges() | rpl::to_empty,
 		AyuSettings::getInstance().showMicrophoneButtonInMessageFieldChanges() | rpl::to_empty,
 		AyuSettings::getInstance().showAutoDeleteButtonInMessageFieldChanges() | rpl::to_empty,
+		session().data().aiComposeTones().updated() | rpl::to_empty,
 		AyuSettings::getInstance().showAiEditorButtonInMessageFieldChanges() | rpl::to_empty,
 		AyuSettings::getInstance().showAttachPopupChanges() | rpl::to_empty,
 		AyuSettings::getInstance().showEmojiPopupChanges() | rpl::to_empty,
@@ -3540,6 +3542,8 @@ void ComposeControls::fieldChanged() {
 	const auto hideExtra = hideExtraButtons()
 		|| isEditingMessage()
 		|| textExceedsMaxSize();
+	const auto ttlAllowed = AyuSettings::getInstance()
+		.showAutoDeleteButtonInMessageField();
 	const auto refreshControls = commandShown
 		|| menuRefreshed
 		|| likeShown
@@ -3548,7 +3552,7 @@ void ComposeControls::fieldChanged() {
 			&& !hideExtra))
 		|| (silentVisible != (_silent && !hideExtra))
 		|| (scheduledVisible != (_scheduled && !hideExtra))
-		|| (ttlVisible != (_ttlInfo && !hideExtra));
+		|| (ttlVisible != (_ttlInfo && !hideExtra && ttlAllowed));
 	if (refreshControls) {
 		updateControlsVisibility();
 		updateControlsGeometry(_wrap->size());
@@ -4102,10 +4106,13 @@ void ComposeControls::initTabbedSelector() {
 						}
 						return;
 					}
+					const auto effectiveFrom = options.scheduled
+						? Ui::MessageSendingAnimationFrom()
+						: from;
 					_fileChosen.fire({
 						.document = document,
 						.options = options,
-						.messageSendingFrom = from,
+						.messageSendingFrom = effectiveFrom,
 						.caption = std::move(caption),
 					});
 				}));
@@ -5270,9 +5277,6 @@ void ComposeControls::updateControlsVisibility() {
 	if (_editStars) {
 		_editStars->show();
 	}
-	if (_ttlInfo) {
-		_ttlInfo->setVisible(!hide);
-	}
 	if (_sendAs) {
 		_sendAs->show();
 	}
@@ -5300,9 +5304,10 @@ void ComposeControls::updateControlsVisibility() {
 	if (_starsReaction) {
 		_starsReaction->show();
 	}
-	SWITCH_BUTTON(_tabbedSelectorToggle, settings.showEmojiButtonInMessageField());
+	SWITCH_BUTTON(_tabbedSelectorToggle, settings.showEmojiButtonInMessageField() && !_botKeyboardHide);
 	if (_ttlInfo) {
-		SWITCH_BUTTON(_ttlInfo, !hide && settings.showAutoDeleteButtonInMessageField());
+		_ttlInfo->setVisible(
+			!hide && settings.showAutoDeleteButtonInMessageField());
 	}
 	updateAiButtonVisibility();
 	updateSendAsFileVisibility();

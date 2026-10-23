@@ -562,6 +562,19 @@ void InnerWidget::elementOpenDocument(
 	_controller->openDocument(document, showInMediaView, {context});
 }
 
+bool InnerWidget::elementScrollToLocalY(
+		not_null<const Element*> view,
+		int localTop) {
+	const auto currentScrollHeight = _visibleBottom - _visibleTop;
+	const auto wanted = std::max(
+		std::min(itemTop(view) + localTop, height() - currentScrollHeight),
+		0);
+	if (wanted != _visibleTop) {
+		_scrollToSignal.fire_copy(wanted);
+	}
+	return true;
+}
+
 void InnerWidget::elementCancelUpload(const FullMsgId &context) {
 	if (const auto item = session().data().message(context)) {
 		_controller->cancelUploadLayer(item);
@@ -571,6 +584,12 @@ void InnerWidget::elementCancelUpload(const FullMsgId &context) {
 void InnerWidget::elementShowTooltip(
 	const TextWithEntities &text,
 	Fn<void()> hiddenCallback) {
+}
+
+void InnerWidget::elementShowHiddenSenderTooltip(
+		FullMsgId itemId,
+		const TextWithEntities &text) {
+	_controller->showToast(TextWithEntities(text));
 }
 
 bool InnerWidget::elementAnimationsPaused() {
@@ -1787,17 +1806,6 @@ QPoint InnerWidget::mapPointToItem(QPoint point, const Element *view) const {
 		return QPoint();
 	}
 	return point - QPoint(0, itemTop(view));
-}
-
-bool InnerWidget::elementScrollToLocalY(
-		gsl::not_null<const HistoryView::Element*> view,
-		int localY) {
-	return false;
-}
-
-void InnerWidget::elementShowHiddenSenderTooltip(
-		FullMsgId context,
-		const TextWithEntities &text) {
 }
 
 InnerWidget::~InnerWidget() = default;

@@ -81,6 +81,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include <QtWidgets/QApplication>
 
+// AyuGram includes
+#include "ayu/ayu_settings.h"
+
+
 namespace Dialogs {
 namespace {
 
@@ -1123,7 +1127,9 @@ void RecommendationsController::prepare() {
 }
 
 void RecommendationsController::load() {
-	if (_requested || countCurrent()) {
+	if (_requested
+		|| countCurrent()
+		|| AyuSettings::getInstance().hideSimilarChannels()) {
 		return;
 	}
 	_requested = true;
@@ -1138,7 +1144,7 @@ void RecommendationsController::load() {
 void RecommendationsController::fill() {
 	const auto participants = &session().api().chatParticipants();
 	const auto &list = participants->recommendations().list;
-	if (list.empty()) {
+	if (list.empty() || AyuSettings::getInstance().hideSimilarChannels()) {
 		return;
 	}
 	for (const auto &peer : list) {

@@ -9,6 +9,7 @@
 #include "lang_auto.h"
 #include "tray.h"
 #include "ayu/ayu_worker.h"
+#include "ayu/features/streamer_mode/streamer_mode.h"
 #include "ayu/ui/ayu_logo.h"
 #include "core/application.h"
 #include "features/filters/filters_cache_controller.h"
@@ -515,7 +516,6 @@ void AyuSettings::validate() {
 
 	validateRange(_messageBubbleRadius, 0, 16, defaults._messageBubbleRadius);
 	validateRange(_wideMultiplier, 0.5, 4.0, defaults._wideMultiplier);
-	validateRange(_recentStickersCount, 1, 200, defaults._recentStickersCount);
 	validateRange(_avatarCorners, 0, 23, defaults._avatarCorners);
 
 	const auto embeddedType = _messageShotSettings._embeddedThemeType.current();
@@ -733,9 +733,9 @@ void AyuSettings::setEditedMark(const QString &val) {
 	save();
 }
 
-void AyuSettings::setRecentStickersCount(int val) {
-	if (_recentStickersCount.current() == val) return;
-	_recentStickersCount = val;
+void AyuSettings::setUnlimitedRecentStickers(bool val) {
+	if (_unlimitedRecentStickers.current() == val) return;
+	_unlimitedRecentStickers = val;
 	save();
 }
 
@@ -1009,6 +1009,12 @@ void AyuSettings::setVoiceConfirmation(bool val) {
 	save();
 }
 
+void AyuSettings::setRoundConfirmation(bool val) {
+	if (_roundConfirmation.current() == val) return;
+	_roundConfirmation = val;
+	save();
+}
+
 void AyuSettings::setTranslationProvider(TranslationProvider val) {
 	if ((val == TranslationProvider::Native)
 		&& !Platform::IsTranslateProviderAvailable()) {
@@ -1050,6 +1056,13 @@ void AyuSettings::setSingleCornerRadius(bool val) {
 	if (_singleCornerRadius.current() == val) return;
 	_singleCornerRadius = val;
 	repaintApp();
+	save();
+}
+
+void AyuSettings::setStreamerMode(bool val) {
+	if (_streamerMode.current() == val) return;
+	_streamerMode = val;
+	AyuFeatures::StreamerMode::apply(val);
 	save();
 }
 
@@ -1096,7 +1109,7 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"replaceBottomInfoWithIcons", s._replaceBottomInfoWithIcons.current()},
 		{"deletedMark", s._deletedMark.current()},
 		{"editedMark", s._editedMark.current()},
-		{"recentStickersCount", s._recentStickersCount.current()},
+		{"unlimitedRecentStickers", s._unlimitedRecentStickers.current()},
 		{"showReactionsPanelInContextMenu", s._showReactionsPanelInContextMenu.current()},
 		{"showViewsPanelInContextMenu", s._showViewsPanelInContextMenu.current()},
 		{"showHideMessageInContextMenu", s._showHideMessageInContextMenu.current()},
@@ -1141,12 +1154,14 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"stickerConfirmation", s._stickerConfirmation.current()},
 		{"gifConfirmation", s._gifConfirmation.current()},
 		{"voiceConfirmation", s._voiceConfirmation.current()},
+		{"roundConfirmation", s._roundConfirmation.current()},
 		{"translationProvider", s._translationProvider.current()},
 		{"adaptiveCoverColor", s._adaptiveCoverColor.current()},
 		{"improveLinkPreviews", s._improveLinkPreviews.current()},
 		{"crashReporting", s._crashReporting.current()},
 		{"avatarCorners", s._avatarCorners.current()},
 		{"singleCornerRadius", s._singleCornerRadius.current()},
+		{"streamerMode", s._streamerMode.current()},
 		{"messageShotSettings", s._messageShotSettings}
 	};
 }
@@ -1198,7 +1213,7 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._replaceBottomInfoWithIcons = j.value("replaceBottomInfoWithIcons", defaults._replaceBottomInfoWithIcons.current());
 	s._deletedMark = j.value("deletedMark", defaults._deletedMark.current());
 	s._editedMark = j.value("editedMark", defaults._editedMark.current());
-	s._recentStickersCount = j.value("recentStickersCount", defaults._recentStickersCount.current());
+	s._unlimitedRecentStickers = j.value("unlimitedRecentStickers", defaults._unlimitedRecentStickers.current());
 	s._showReactionsPanelInContextMenu = j.value("showReactionsPanelInContextMenu", defaults._showReactionsPanelInContextMenu.current());
 	s._showViewsPanelInContextMenu = j.value("showViewsPanelInContextMenu", defaults._showViewsPanelInContextMenu.current());
 	s._showHideMessageInContextMenu = j.value("showHideMessageInContextMenu", defaults._showHideMessageInContextMenu.current());
@@ -1243,12 +1258,14 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._stickerConfirmation = j.value("stickerConfirmation", defaults._stickerConfirmation.current());
 	s._gifConfirmation = j.value("gifConfirmation", defaults._gifConfirmation.current());
 	s._voiceConfirmation = j.value("voiceConfirmation", defaults._voiceConfirmation.current());
+	s._roundConfirmation = j.value("roundConfirmation", defaults._roundConfirmation.current());
 	s._translationProvider = j.value("translationProvider", defaults._translationProvider.current());
 	s._adaptiveCoverColor = j.value("adaptiveCoverColor", defaults._adaptiveCoverColor.current());
 	s._improveLinkPreviews = j.value("improveLinkPreviews", defaults._improveLinkPreviews.current());
 	s._crashReporting = j.value("crashReporting", defaults._crashReporting.current());
 	s._avatarCorners = j.value("avatarCorners", defaults._avatarCorners.current());
 	s._singleCornerRadius = j.value("singleCornerRadius", defaults._singleCornerRadius.current());
+	s._streamerMode = j.value("streamerMode", defaults._streamerMode.current());
 
 	if (j.contains("messageShotSettings") && j["messageShotSettings"].is_object()) {
 		j["messageShotSettings"].get_to(s._messageShotSettings);

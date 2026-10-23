@@ -117,6 +117,9 @@ template <typename T>
 [[nodiscard]] bool ShowTtlMediaAsExpired(
 		not_null<HistoryItem*> item,
 		const MTPMessageMedia &media) {
+	if (AyuSettings::getInstance().saveDeletedMessages()) {
+		return false;
+	}
 	if (item->out() || item->hasUnreadMediaFlag()) {
 		return false;
 	}
@@ -599,7 +602,7 @@ HistoryItem::HistoryItem(
 		applyTTL(data);
 	} else {
 		createComponents(data);
-		if (media) {
+		if (const auto media = data.vmedia()) {
 			setMedia(*media);
 		}
 		if (const auto media = _media.get()) {
@@ -1885,6 +1888,10 @@ bool HistoryItem::isTtlCoveredMedia() const {
 	const auto media = _media.get();
 	if (!media || !media->ttlSeconds()) {
 		return false;
+	} else if (isBurnt()
+		&& !Has<HistoryServiceSelfDestruct>()
+		&& AyuSettings::getInstance().saveDeletedMessages()) {
+		return false;
 	} else if (media->photo()) {
 		return true;
 	} else if (const auto document = media->document()) {
@@ -1971,7 +1978,7 @@ bool HistoryItem::markContentsRead(bool fromThisClient) {
 		markReactionsRead();
 		result = true;
 	}
-	if (isUnreadMention() || isIncomingUnreadMedia() || (unsupportedTTL() && hasUnreadMediaFlag())) {
+	if (isUnreadMention() || isIncomingUnreadMedia()) {
 		markMediaAndMentionRead();
 		result = true;
 	}
@@ -2298,7 +2305,7 @@ bool HistoryItem::isSponsored() const {
 }
 
 bool HistoryItem::isAyuNoForwards() const {
-	return _flags & MessageFlag::NoForwards;
+	return _flags & MessageFlag::AyuNoForwards;
 }
 
 bool HistoryItem::canLookupMessageAuthor() const {
@@ -2802,9 +2809,9 @@ void HistoryItem::applySentMessage(const MTPDmessage &data) {
 		_flags &= ~MessageFlag::InvertMedia;
 	}
 	if (data.is_noforwards()) {
-		_flags |= MessageFlag::NoForwards;
+		_flags |= MessageFlag::AyuNoForwards;
 	} else {
-		_flags &= ~MessageFlag::NoForwards;
+		_flags &= ~MessageFlag::AyuNoForwards;
 	}
 
 	const auto wasTypes = sharedMediaTypes();
@@ -3051,14 +3058,18 @@ void HistoryItem::clearMediaAsExpired() {
 	const auto media = this->media();
 	if (!media || !media->ttlSeconds()) {
 		return;
-	}
-
-	const auto &settings = AyuSettings::getInstance();
-	if (settings.saveDeletedMessages()) {
+	} else if (isIncomingUnreadMedia()) {
 		return;
 	}
 
 	unarmMediaDestroy();
+	const auto &settings = AyuSettings::getInstance();
+	if (settings.saveDeletedMessages()) {
+		RemoveComponents(HistoryServiceSelfDestruct::Bit());
+		_history->owner().requestItemViewRefresh(this);
+		return;
+	}
+
 	auto &owner = _history->owner();
 	if (const auto document = media->document()) {
 		document->cancel();
@@ -3469,8 +3480,6 @@ bool HistoryItem::forbidsForward() const {
 
 bool HistoryItem::forbidsSaving() const {
 	if (forbidsForward()) {
-		return true;
-	} else if (_media && _media->ttlSeconds()) {
 		return true;
 	}/* else if (const auto invoice = _media ? _media->invoice() : nullptr) {
 		return HasExtendedMedia(*invoice);
@@ -4329,6 +4338,13 @@ void HistoryItem::setDeleted() {
 		}
 	}
 
+	if (hasUnreadPollVote()) {
+		history()->unreadPollVotes().erase(id);
+		if (const auto topic = this->topic()) {
+			topic->unreadPollVotes().erase(id);
+		}
+	}
+
 	if (isService()) {
 		const auto &settings = AyuSettings::getInstance();
 		setAyuHint(settings.deletedMark());
@@ -4343,7 +4359,7 @@ bool HistoryItem::isDeleted() const {
 }
 
 bool HistoryItem::isBurnt() const {
-	return ((media() && media()->ttlSeconds()) || unsupportedTTL()) && !hasUnreadMediaFlag();
+	return media() && media()->ttlSeconds() && !hasUnreadMediaFlag();
 }
 
 bool HistoryItem::wasDeletedAnimated() const {
@@ -4587,7 +4603,7 @@ void HistoryItem::applyTTL(TimeId destroyAt) {
 		const auto session = &_history->session();
 		crl::on_main(session, [session, id = fullId()]{
 			if (const auto item = session->data().message(id)) {
-				session->data().destroyMessageWithCacheCleanup(item);
+				processMessageDelete(item);
 			}
 		});
 	} else {

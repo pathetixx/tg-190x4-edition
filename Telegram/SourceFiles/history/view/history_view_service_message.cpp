@@ -606,11 +606,15 @@ QSize Service::performCountCurrentSize(int newWidth) {
 	if (contentWidth < st::msgServicePadding.left() + st::msgServicePadding.right() + 1) {
 		contentWidth = st::msgServicePadding.left() + st::msgServicePadding.right() + 1;
 	}
-	const auto nwidth = qMax(contentWidth - st::msgServicePadding.left() - st::msgServicePadding.right(), 0);
+	const auto nwidth = std::max(
+		contentWidth
+			- st::msgServicePadding.left()
+			- st::msgServicePadding.right(),
+		0);
 	validateTextSkipBlock(
 		!timeText.isEmpty(),
 		timeMetrics.additionalWidth,
-		qMax(timeMetrics.height, st::msgServiceFont->height));
+		std::max(timeMetrics.height, st::msgServiceFont->height));
 	if (hideText) {
 		newHeight += media->resizeGetHeight(newWidth) + marginBottom();
 	} else if (!text().isEmpty()) {
@@ -667,7 +671,7 @@ QSize Service::performCountOptimalSize() {
 	validateTextSkipBlock(
 		!timeText.isEmpty(),
 		timeMetrics.additionalWidth,
-		qMax(timeMetrics.height, st::msgServiceFont->height));
+		std::max(timeMetrics.height, st::msgServiceFont->height));
 	validateInlineKeyboard(markup);
 	auto maxWidth = text().maxWidth() + st::msgServicePadding.left() + st::msgServicePadding.right();
 	auto minHeight = text().minHeight();

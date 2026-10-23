@@ -113,6 +113,7 @@ GifsListWidget::GifsListWidget(
 	descriptor.show,
 	descriptor.paused)
 , _show(std::move(descriptor.show))
+, _requireConfirmation(descriptor.requireConfirmation)
 , _api(&session().mtp())
 , _section(Section::Gifs)
 , _updateInlineItems([=] { updateInlineItems(); })
@@ -132,7 +133,11 @@ GifsListWidget::GifsListWidget(
 
 	session().data().stickers().savedGifsUpdated(
 	) | rpl::on_next([=] {
-		refreshSavedGifs();
+		if (underMouse()) {
+			_refreshDelayed = true;
+		} else {
+			refreshSavedGifs();
+		}
 	}, lifetime());
 
 	session().downloaderTaskFinished(
@@ -526,8 +531,7 @@ void GifsListWidget::selectInlineResult(
 			auto from = messageSendingFrom();
 			auto sendGIFCallback = crl::guard(
 				this,
-				[=]
-				{
+				[=] {
 					_fileChosen.fire({
 						.document = document,
 						.options = options,
@@ -537,7 +541,7 @@ void GifsListWidget::selectInlineResult(
 				});
 
 			const auto &settings = AyuSettings::getInstance();
-			if (settings.gifConfirmation()) {
+			if (settings.gifConfirmation() && _requireConfirmation && !needsCaption) {
 				_show->showBox(Ui::MakeConfirmBox({
 					.text = tr::ayu_ConfirmationGIF(),
 					.confirmed = sendGIFCallback,
@@ -575,10 +579,16 @@ void GifsListWidget::mouseMoveEvent(QMouseEvent *e) {
 
 void GifsListWidget::leaveEventHook(QEvent *e) {
 	clearSelection();
+	if (base::take(_refreshDelayed)) {
+		refreshSavedGifs();
+	}
 }
 
 void GifsListWidget::leaveToChildEvent(QEvent *e, QWidget *child) {
 	clearSelection();
+	if (base::take(_refreshDelayed)) {
+		refreshSavedGifs();
+	}
 }
 
 void GifsListWidget::enterFromChildEvent(QEvent *e, QWidget *child) {
@@ -626,6 +636,7 @@ void GifsListWidget::clearHeavyData() {
 }
 
 void GifsListWidget::refreshSavedGifs() {
+	_refreshDelayed = false;
 	if (_section == Section::Gifs) {
 		clearInlineRows(false);
 

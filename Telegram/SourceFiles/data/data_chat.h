@@ -96,6 +96,7 @@ public:
 	[[nodiscard]] bool isMigrated() const {
 		return (_migratedTo != nullptr);
 	}
+
 	[[nodiscard]] bool hasWelcomeMessages() const {
 		return flags() & ChatDataFlag::HasWelcomeMessages;
 	}

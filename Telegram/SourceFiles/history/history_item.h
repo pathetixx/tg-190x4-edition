@@ -686,9 +686,6 @@ public:
 		return _ttlDestroyAt;
 	}
 
-	[[nodiscard]] int unsupportedTTL() const {
-		return _unsupportedTTL;
-	}
 	void removeTranslationBit();
 
 	[[nodiscard]] int boostsApplied() const {
@@ -841,7 +838,6 @@ private:
 
 	bool _deleted = false;
 	bool _deletedAnimated = false;
-	int _unsupportedTTL = 0;
 
 	TimeId _date = 0;
 	TimeId _ttlDestroyAt = 0;
