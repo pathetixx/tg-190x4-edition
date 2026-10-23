@@ -366,11 +366,6 @@ auto Controller::sessionControllerValue() const
 	return _sessionControllerValue.value();
 }
 
-auto Controller::sessionControllerChanges() const
--> rpl::producer<SessionController*> {
-	return _sessionControllerValue.changes();
-}
-
 bool Controller::locked() const {
 	if (Core::App().passcodeLocked()/* || Core::App().setupEmailLocked()*/) {
 		return true;
@@ -499,6 +494,7 @@ void Controller::sideBarChanged() {
 
 void Controller::activate() {
 	_widget.activate();
+	Core::App().registerWindowActivation(&_widget);
 }
 
 void Controller::updateIsActiveFocus() {
