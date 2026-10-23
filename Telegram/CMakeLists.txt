@@ -2704,6 +2704,9 @@ if (WIN32)
         target_link_libraries(Telegram PRIVATE desktop-app::win_directx_helper)
     endif()
 
+    # Static Qt6Network references the Windows DNS API from qdnslookup_win.
+    target_link_libraries(Telegram PRIVATE dnsapi)
+
     if (DESKTOP_APP_WIN7_BASELINE)
         # ANGLE loads d3dcompiler_47.dll from modules folder next to exe.
         if (build_win64)
