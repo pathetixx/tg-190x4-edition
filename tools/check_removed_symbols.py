@@ -19,6 +19,9 @@ IDENTIFIER = re.compile(r"\b[A-Za-z_][A-Za-z0-9_]{4,}\b")
 LINE_COMMENT = re.compile(r"//.*")
 BLOCK_COMMENT = re.compile(r"/\*.*?\*/")
 COMMENT_LINE = re.compile(r"\s*(\*|/\*|//)")
+NOT_A_TYPE = (
+    "return", "else", "case", "delete", "new", "throw", "goto",
+    "co_return", "co_yield", "co_await", "not", "and", "or")
 
 
 def git(*args):
@@ -53,6 +56,16 @@ def mod_identifiers():
     return set(listing.split())
 
 
+def defined_in_mod(name):
+    """A local the mod declares itself is not an upstream symbol it lost."""
+    declaration = re.compile(
+        r"(?<![\w.>:])(?!(?:" + "|".join(NOT_A_TYPE) + r")\b)"
+        r"[A-Za-z_][\w:]*(?:<[^;()]*>)?[\s*&]+" + re.escape(name)
+        + r"\s*(?:=|;|\{|\[)")
+    listing = git("grep", "-hIw", "--", name, MOD_PATH, VENDORED)
+    return any(declaration.search(code_only(line)) for line in listing.splitlines())
+
+
 def main():
     if len(sys.argv) != 3:
         print("usage: check_removed_symbols.py <base-ref> <upstream-ref>")
@@ -63,7 +76,9 @@ def main():
     orphans = []
     for name in suspects:
         files = git("grep", "-l", "--", name, *SEARCH_PATHS).split()
-        if not [path for path in files if f"{MOD_PATH}/" not in path]:
+        if [path for path in files if f"{MOD_PATH}/" not in path]:
+            continue
+        if not defined_in_mod(name):
             orphans.append(name)
 
     print(f"identifiers removed upstream and referenced by the mod: {len(suspects)}")
