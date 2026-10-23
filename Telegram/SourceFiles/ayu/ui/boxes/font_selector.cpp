@@ -7,6 +7,7 @@
 #include "ayu/ui/boxes/font_selector.h"
 
 #include "ayu/ayu_settings.h"
+#include "ayu/ayu_ui_settings.h"
 #include "boxes/premium_preview_box.h"
 #include "core/application.h"
 #include "data/data_peer_values.h"
@@ -656,7 +657,7 @@ void Content::setupContent(
 	const std::vector<Font> &fonts) {
 	using namespace rpl::mappers;
 
-	const auto current = AyuSettings::getInstance().monoFont();
+	const auto current = AyuUiSettings::getMonoFont();
 	const auto content = Ui::CreateChild<Ui::VerticalLayout>(this);
 	const auto add = [&](const std::vector<Font> &list)
 	{

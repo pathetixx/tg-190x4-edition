@@ -1184,9 +1184,13 @@ TextWithEntities reverseLocalPremiumEmoji(const TextWithEntities &text, not_null
 		if (entity.type() != EntityType::CustomEmoji) {
 			continue;
 		}
-		const auto shouldConvert = (!history->peer->isSelf()
-			&& !premium
-			&& !emojiAllowed(entity));
+		const auto shouldConvert = entity.isLocal()
+			? (isForQuote
+				|| (!history->peer->isSelf() && !premium && !emojiAllowed(entity)))
+			: (!isForQuote
+				&& !history->peer->isSelf()
+				&& !premium
+				&& !emojiAllowed(entity));
 		if (shouldConvert) {
 			entity = EntityInText(
 				EntityType::CustomUrl,
@@ -1221,6 +1225,7 @@ void applyLocalPremiumEmoji(TextWithEntities &text) {
 							entity.offset(),
 							entity.length(),
 							emojiId);
+						entity.setLocal();
 					}
 				}
 			}

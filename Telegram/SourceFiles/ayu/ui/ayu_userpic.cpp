@@ -7,6 +7,7 @@
 #include "ayu/ui/ayu_userpic.h"
 
 #include "ayu/ayu_settings.h"
+#include "ayu/ayu_ui_settings.h"
 #include "media/streaming/media_streaming_common.h"
 #include "ui/image/image_prepare.h"
 #include "ui/style/style_core.h"
@@ -30,56 +31,56 @@ bool ShouldOverrideShape(Ui::PeerUserpicShape shape) {
 }
 
 int ComputeRadius(int pixelSize) {
-	const auto corners = AyuSettings::getInstance().avatarCorners();
-	if (corners >= 23) return pixelSize / 2;
+	const auto corners = AyuUiSettings::getAvatarCorners();
+	if (corners >= AyuUiSettings::kMaxAvatarCorners) return pixelSize / 2;
 	if (corners <= 0) return 0;
-	return int(double(corners) / 23.0 * pixelSize / 2.0);
+	return int(double(corners) / AyuUiSettings::kMaxAvatarCorners * pixelSize / 2.0);
 }
 
 double ComputeRadiusF(double size) {
-	const auto corners = AyuSettings::getInstance().avatarCorners();
-	if (corners >= 23) return size / 2.0;
+	const auto corners = AyuUiSettings::getAvatarCorners();
+	if (corners >= AyuUiSettings::kMaxAvatarCorners) return size / 2.0;
 	if (corners <= 0) return 0.0;
-	return double(corners) / 23.0 * size / 2.0;
+	return double(corners) / AyuUiSettings::kMaxAvatarCorners * size / 2.0;
 }
 
 bool IsCircle() {
-	return AyuSettings::getInstance().avatarCorners() >= 23;
+	return AyuUiSettings::getAvatarCorners() >= AyuUiSettings::kMaxAvatarCorners;
 }
 
 uint8 PackedState() {
-	return uint8(AyuSettings::getInstance().avatarCorners() & 0x1F)
+	return uint8(AyuUiSettings::getAvatarCorners() & 0x1F)
 		| (AyuSettings::getInstance().singleCornerRadius() ? 0x20 : 0);
 }
 
 void PaintShape(QPainter &p, int x, int y, int size) {
-	const auto corners = AyuSettings::getInstance().avatarCorners();
-	if (corners >= 23) {
+	const auto corners = AyuUiSettings::getAvatarCorners();
+	if (corners >= AyuUiSettings::kMaxAvatarCorners) {
 		p.drawEllipse(x, y, size, size);
 	} else if (corners <= 0) {
 		p.drawRect(x, y, size, size);
 	} else {
-		const auto r = double(corners) / 23.0 * size / 2.0;
+		const auto r = double(corners) / AyuUiSettings::kMaxAvatarCorners * size / 2.0;
 		p.drawRoundedRect(x, y, size, size, r, r);
 	}
 }
 
 void PaintShape(QPainter &p, const QRectF &rect) {
-	const auto corners = AyuSettings::getInstance().avatarCorners();
-	if (corners >= 23) {
+	const auto corners = AyuUiSettings::getAvatarCorners();
+	if (corners >= AyuUiSettings::kMaxAvatarCorners) {
 		p.drawEllipse(rect);
 	} else if (corners <= 0) {
 		p.drawRect(rect);
 	} else {
-		const auto r = double(corners) / 23.0
+		const auto r = double(corners) / AyuUiSettings::kMaxAvatarCorners
 			* std::min(rect.width(), rect.height()) / 2.0;
 		p.drawRoundedRect(rect, r, r);
 	}
 }
 
 QPointF OnlineBadgePosition(int photoSize, double badgeSize, double stroke) {
-	const auto corners = AyuSettings::getInstance().avatarCorners();
-	const auto r = double(corners) / 23.0 * photoSize / 2.0;
+	const auto corners = AyuUiSettings::getAvatarCorners();
+	const auto r = double(corners) / AyuUiSettings::kMaxAvatarCorners * photoSize / 2.0;
 	const auto edge = photoSize - r * (1.0 - std::cos(M_PI / 4.0));
 	const auto maxPos = (stroke > 0)
 		? photoSize - badgeSize / 2.0 - (badgeSize / 2.0 + stroke / 2.0) / std::sqrt(2.0)

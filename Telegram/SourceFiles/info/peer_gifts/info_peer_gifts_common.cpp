@@ -45,6 +45,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 // AyuGram includes
 #include "ayu/ayu_settings.h"
+#include "ayu/ayu_ui_settings.h"
 #include "ayu/ui/ayu_userpic.h"
 
 
@@ -1145,9 +1146,8 @@ void GiftButton::paint(QPainter &p, float64 craftProgress) {
 			_userpic->subscribeToUpdates([=] { update(); });
 		}
 		const auto image = _userpic->image(st::giftBoxUserpicSize);
-		const auto corners = AyuSettings::getInstance().avatarCorners();
-		constexpr auto kMaxAvatarCorners = 23;
-		const auto extraSkip = int(double(kMaxAvatarCorners - corners) / kMaxAvatarCorners * 6.0);
+		const auto corners = AyuUiSettings::getAvatarCorners();
+		const auto extraSkip = int(double(AyuUiSettings::kMaxAvatarCorners - corners) / AyuUiSettings::kMaxAvatarCorners * 6.0);
 		const auto skip = st::giftBoxUserpicSkip + extraSkip;
 		p.drawImage(extend.left() + skip, extend.top() + skip, image);
 	} else if (_check) {

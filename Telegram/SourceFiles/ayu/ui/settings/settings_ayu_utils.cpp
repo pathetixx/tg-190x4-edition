@@ -342,6 +342,7 @@ not_null<Ui::RpWidget*> AddInnerToggle(not_null<Ui::VerticalLayout*> container,
 											   anim::easeOutCubic);
 									   },
 									   button->lifetime());
+	wrap->ease = anim::easeOutCubic;
 
 	button->clicks(
 	) | on_next([=]

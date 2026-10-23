@@ -176,7 +176,7 @@ void ValidateUserpicCache(
 		if (ayuOverride) {
 			view.cached = Images::Round(
 				std::move(view.cached),
-				Images::CornersMask(AyuUserpic::ComputeRadius(size)));
+				ImageRoundRadius::AyuUserpic);
 		} else if (shape == PeerUserpicShape::Monoforum) {
 			view.cached = Ui::ApplyMonoforumShape(std::move(view.cached));
 		} else if (shape == PeerUserpicShape::Forum) {

@@ -689,6 +689,7 @@ void SetupAboutPeerIdDrag(
 		object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
 			inner,
 			object_ptr<Ui::VerticalLayout>(inner)));
+	other->ease = anim::easeOutCubic;
 	other->toggleOn(state->expanded.value(), anim::type::normal);
 	constexpr auto kSlideDuration = float64(st::slideWrapDuration);
 	other->setDuration(kSlideDuration);
@@ -1885,7 +1886,7 @@ Section DetailsFiller::makeInfo() {
 				user
 			) | rpl::map([](TextWithEntities &&text)
 			{
-				return Ui::Text::Link(std::move(text));
+				return Ui::Text::Code(text.text);
 			});
 			auto idInfo = addInfoOneLine(
 				idLabel,
@@ -2001,7 +2002,7 @@ Section DetailsFiller::makeInfo() {
 				_peer
 			) | rpl::map([](TextWithEntities &&text)
 			{
-				return Ui::Text::Link(std::move(text));
+				return Ui::Text::Code(text.text);
 			});
 			auto idInfo = addInfoOneLine(
 				idLabel,
@@ -2026,7 +2027,7 @@ Section DetailsFiller::makeInfo() {
 				_peer->forumTopicFor(topicRootId)->topicRootId()
 			) | rpl::map([](TextWithEntities &&text)
 			{
-				return Ui::Text::Link(std::move(text));
+				return Ui::Text::Code(text.text);
 			});
 			auto idInfo = addInfoOneLine(
 				QString("ID"),

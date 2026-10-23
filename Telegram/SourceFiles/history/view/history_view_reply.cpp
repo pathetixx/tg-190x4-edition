@@ -910,7 +910,7 @@ void Reply::paint(
 
 	if (_ripple.animation) {
 		_ripple.lastPaintedPoint = inBubble ? QPoint(x, y) : QPoint();
-		_ripple.animation->paint(p, x, y, w, &cache->bg);
+		_ripple.animation->paint(p, x, y, w, &cache->bg2);
 		if (_ripple.animation->empty()) {
 			_ripple.animation.reset();
 			_ripple.lastPaintedPoint = {};
