@@ -74,6 +74,12 @@ jobs:
           fetch-depth: 1
           path: TBuild/tg-190x4-edition
 
+      # prepare.py hashes and passes on cmake/external/angle/qt.cmake from
+      # the cmake submodule since Telegram 7.3.2.
+      - name: Checkout cmake submodule
+        shell: bash
+        run: git -C "TBuild/$REPO_DIR" submodule update --init --depth 1 cmake
+
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
