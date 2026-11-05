@@ -18,6 +18,7 @@
 #include "ui/painter.h"
 #include "ui/userpic_view.h"
 #include "ui/effects/ripple_animation.h"
+#include "data/data_chat_participant_status.h"
 #include "window/window_session_controller.h"
 #include "window/window_session_controller_link_info.h"
 
