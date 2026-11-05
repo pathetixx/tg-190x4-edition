@@ -34,6 +34,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtGui/QClipboard>
 
 // AyuGram includes
+#include "data/data_chat_participant_status.h"
 #include "window/window_session_controller.h"
 #include "window/window_session_controller_link_info.h"
 

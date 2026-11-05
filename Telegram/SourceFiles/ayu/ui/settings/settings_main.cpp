@@ -27,6 +27,7 @@
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/labels.h"
 #include "ui/wrap/vertical_layout.h"
+#include "data/data_chat_participant_status.h"
 #include "window/window_session_controller.h"
 #include "window/window_session_controller_link_info.h"
 
