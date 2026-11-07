@@ -79,6 +79,7 @@ if (DESKTOP_APP_TEST_APPS OR TDESKTOP_BUILD_UPDATE_TESTS)
     endif()
 endif()
 include(cmake/test_iv_editor_table_grid.cmake)
+include(cmake/test_wallet_card_tint.cmake)
 include(cmake/test_wallet_phrase_shares.cmake)
 
 set_target_properties(Telegram PROPERTIES AUTOMOC ON)
@@ -1381,6 +1382,7 @@ PRIVATE
     history/view/history_view_text_helper.h
     history/view/history_view_touch_scroll.cpp
     history/view/history_view_touch_scroll.h
+    history/view/history_view_touch_speed.h
     history/view/history_view_transcribe_button.cpp
     history/view/history_view_transcribe_button.h
     history/view/history_view_translate_bar.cpp
@@ -2274,6 +2276,8 @@ PRIVATE
     test/test_hover.h
     test/test_ink.cpp
     test/test_ink.h
+    test/test_l10n_seams.cpp
+    test/test_l10n_seams.h
     test/test_lang_ids_migration.cpp
     test/test_lang_ids_migration.h
     test/test_lang_pack.cpp
@@ -2625,6 +2629,8 @@ PRIVATE
     wallet/wallet_phrase_shares.h
     wallet/wallet_rates.cpp
     wallet/wallet_rates.h
+    wallet/wallet_row_address_chips.cpp
+    wallet/wallet_row_address_chips.h
     wallet/wallet_send_preparation.cpp
     wallet/wallet_send_preparation.h
     wallet/wallet_session.cpp
@@ -2782,6 +2788,10 @@ else()
     PRIVATE
         tray_accounts_menu_dummy.cpp
     )
+endif()
+
+if (TDESKTOP_L10N_CAPTURE)
+    include(${TDESKTOP_L10N_CAPTURE}/capture.cmake)
 endif()
 
 if (NOT build_winstore)
