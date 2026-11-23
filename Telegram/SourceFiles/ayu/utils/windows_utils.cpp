@@ -12,6 +12,7 @@
 #include "base/platform/win/base_windows_winrt.h"
 #include "platform/win/windows_app_user_model_id.h"
 
+#include <objbase.h>
 #include <propvarutil.h>
 #include <ShlObj_core.h>
 

@@ -31,19 +31,22 @@ bool Launcher::launchUpdater(UpdaterLaunch action) {
 	if (cExeName().isEmpty()) {
 		return false;
 	}
+	// WHY: every install path ends here after the app has quit, so the kept
+	// package is verified and unpacked only now, and a package that fails
+	// brings the current version back instead of leaving the user without it.
+	if (action == UpdaterLaunch::PerformUpdate
+		&& Core::prepareReadyUpdate() != Core::ReadyUpdateInstall::Unpacked) {
+		action = UpdaterLaunch::JustRelaunch;
+	}
 	@autoreleasepool {
 
 	if (action == UpdaterLaunch::JustRelaunch) {
-#ifdef OS_MAC_STORE
-		const auto updaterDisabled = true;
-#else
-		const auto updaterDisabled = Core::UpdaterDisabled();
-#endif
-		if (updaterDisabled) {
-			NSDictionary *conf = [NSDictionary dictionaryWithObject:[NSArray array] forKey:NSWorkspaceLaunchConfigurationArguments];
-			[[NSWorkspace sharedWorkspace] launchApplicationAtURL:[NSURL fileURLWithPath:Q2NSString(cExeDir() + cExeName())] options:NSWorkspaceLaunchAsync | NSWorkspaceLaunchNewInstance configuration:conf error:0];
-			return true;
-		}
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+		NSDictionary *conf = [NSDictionary dictionaryWithObject:[NSArray array] forKey:NSWorkspaceLaunchConfigurationArguments];
+		[[NSWorkspace sharedWorkspace] launchApplicationAtURL:[NSURL fileURLWithPath:Q2NSString(cExeDir() + cExeName())] options:NSWorkspaceLaunchAsync | NSWorkspaceLaunchNewInstance configuration:conf error:0];
+#pragma clang diagnostic pop
+		return true;
 	}
 
 	NSString *path = @"", *args = @"";

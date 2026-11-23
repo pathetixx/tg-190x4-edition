@@ -2088,7 +2088,10 @@ def overlay_bundle_bytes(work):
 	return result
 
 
-def overlay_repo_with_nested_module(root):
+PINNED_MODULE = "Telegram/ThirdParty/dep"
+
+
+def overlay_repo_with_nested_module(root, path="dep"):
 	root = Path(root)
 	source, slot, work, config = source_repo_with_task(root)
 	dependency = root.resolve() / "dependency"
@@ -2098,7 +2101,7 @@ def overlay_repo_with_nested_module(root):
 	git(dependency, "commit", "-m", "Create module")
 	git(
 		source, "-c", "protocol.file.allow=always", "submodule", "add",
-		str(dependency), "dep",
+		str(dependency), path,
 	)
 	git(source, "commit", "-am", "Record dependency")
 	git(
@@ -2106,9 +2109,9 @@ def overlay_repo_with_nested_module(root):
 		workspace.source_task_ref(TASK_ID, "run"), "HEAD",
 	)
 	(work / workspace.OVERLAY_PATHS_FILE).write_text(
-		"tracked.txt\ndep/tracked.txt\n", encoding="utf-8",
+		f"tracked.txt\n{path}/tracked.txt\n", encoding="utf-8",
 	)
-	return source, slot, work, config, source / "dep"
+	return source, slot, work, config, source / path
 
 
 def run_command(handler, **kwargs):
@@ -2135,6 +2138,7 @@ def run_test_run(exe, run_dir, **overrides):
 		"host_load_interval": workspace.HOST_LOAD_INTERVAL_DEFAULT,
 		"activate": False,
 		"env": None,
+		"keep_relaunched": None,
 	}
 	arguments.update(overrides)
 	return run_command(workspace.command_test_run, **arguments)
@@ -2408,6 +2412,78 @@ def background_client_env(script, seconds, record, announced):
 		f"HOST_LOAD_HELPER_SECONDS={seconds}",
 		f"HOST_LOAD_HELPER_RECORD={record}",
 	]
+
+
+RELAUNCHING_CLIENT_SOURCE = """\
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Threading;
+
+static class RelaunchingClient {
+	static string Setting(string name) {
+		string value = Environment.GetEnvironmentVariable(name);
+		if (string.IsNullOrEmpty(value)) {
+			Environment.Exit(2);
+		}
+		return value;
+	}
+
+	static int Main(string[] args) {
+		string self = Process.GetCurrentProcess().MainModule.FileName;
+		string record = Setting("RELAUNCH_FIXTURE_RECORD");
+		if (args.Length == 3 && args[0] == "-update") {
+			try {
+				Process.GetProcessById(int.Parse(args[1])).WaitForExit();
+			} catch (ArgumentException) {
+			}
+			Thread.Sleep(1000);
+			ProcessStartInfo restart = new ProcessStartInfo(args[2], "-noupdate");
+			restart.UseShellExecute = false;
+			Process started = Process.Start(restart);
+			File.WriteAllText(record + ".tmp", started.Id.ToString());
+			File.Move(record + ".tmp", record);
+			return 0;
+		}
+		if (args.Length == 1 && args[0] == "-noupdate") {
+			Stopwatch alive = Stopwatch.StartNew();
+			while (alive.ElapsedMilliseconds < 60000) {
+				File.AppendAllText(
+					record + ".beats", DateTime.UtcNow.ToFileTimeUtc() + "\\n");
+				Thread.Sleep(100);
+			}
+			return 0;
+		}
+		ProcessStartInfo updater = new ProcessStartInfo(
+			Path.Combine(Path.GetDirectoryName(self), "relaunch-updater.exe"),
+			"-update " + Process.GetCurrentProcess().Id + " \\"" + self + "\\"");
+		updater.UseShellExecute = false;
+		Process.Start(updater);
+		File.AppendAllText(
+			Path.Combine(Setting("TDESKTOP_TEST_EVIDENCE_DIR"), "test_log.txt"),
+			"TEST_COMPLETE\\n");
+		return 0;
+	}
+}
+"""
+
+
+def compile_relaunching_client(debug):
+	debug.mkdir(parents=True, exist_ok=True)
+	source = debug / "relaunch-client.cs"
+	source.write_text(RELAUNCHING_CLIENT_SOURCE, encoding="utf-8")
+	exe = debug / "relaunch-client.exe"
+	compiler = (
+		Path(os.environ["SystemRoot"])
+		/ "Microsoft.NET" / "Framework64" / "v4.0.30319" / "csc.exe"
+	)
+	subprocess.run(
+		[str(compiler), "-nologo", f"-out:{exe}", str(source)],
+		check=True,
+	)
+	updater = debug / "relaunch-updater.exe"
+	shutil.copyfile(exe, updater)
+	return exe, updater
 
 
 def write_python_client(path, *arguments):
@@ -2999,6 +3075,7 @@ class MechanicsTest(unittest.TestCase):
 					build_root=str(build),
 					exe=str(exe),
 					artifact=[str(exe), str(obj)],
+					failed_log=None,
 					wait=0,
 				)
 			self.assertTrue(result["safe_to_retry"])
@@ -3043,8 +3120,327 @@ class MechanicsTest(unittest.TestCase):
 					build_root=str(build),
 					exe=str(exe),
 					artifact=[str(outside)],
+					failed_log=None,
 					wait=0,
 				)
+
+	def failed_build_tree(self, root):
+		source, _, _, _ = source_repo_with_task(root)
+		build = source / "out"
+		project = build / "Telegram" / "Telegram.vcxproj"
+		library = build / "Telegram" / "lib_widget_sandbox.vcxproj"
+		project.parent.mkdir(parents=True)
+		(build / "CMakeCache.txt").write_text(
+			f"CMAKE_HOME_DIRECTORY:INTERNAL={source}\n",
+			encoding="utf-8",
+		)
+		code = source / "Telegram" / "SourceFiles"
+		tree = SimpleNamespace(
+			source=source,
+			build=build,
+			project=project,
+			library=library,
+			exe=build / "Debug" / "Telegram.exe",
+			watch=code / "test" / "test_widget_host.cpp",
+			runtime=code / "tgw" / "tgw_runtime.cpp",
+			unrelated=code / "tgw" / "tgw_bridge.cpp",
+			escaped=code / "tgw" / "tgw_escaped.cpp",
+			header=source / "Telegram" / "ThirdParty" / "widget_host.h",
+			host=source / "Telegram" / "ThirdParty" / "widget_host.cpp",
+			outside=source / "Telegram" / "outside.obj",
+		)
+		debug = build / "Telegram" / "Telegram.dir" / "Debug"
+		release = build / "Telegram" / "Telegram.dir" / "Release"
+		library_debug = build / "Telegram" / "lib_widget_sandbox.dir" / "Debug"
+		tree.watch_obj = debug / "test_widget_host.obj"
+		tree.runtime_obj = debug / "tgw_runtime.obj"
+		tree.unrelated_obj = debug / "tgw_bridge.obj"
+		tree.release_obj = release / "test_widget_host.obj"
+		tree.host_obj = library_debug / "widget_host.obj"
+		for path in (
+			tree.exe,
+			tree.watch,
+			tree.runtime,
+			tree.unrelated,
+			tree.escaped,
+			tree.header,
+			tree.host,
+			tree.outside,
+			tree.watch_obj,
+			tree.runtime_obj,
+			tree.unrelated_obj,
+			tree.release_obj,
+			tree.host_obj,
+		):
+			path.parent.mkdir(parents=True, exist_ok=True)
+			path.write_bytes(b"x")
+		items = {
+			debug / "Telegram.tlog": [
+				(tree.watch, tree.watch_obj),
+				(tree.runtime, tree.runtime_obj),
+				(tree.unrelated, tree.unrelated_obj),
+				(tree.escaped, tree.outside),
+			],
+			release / "Telegram.tlog": [(tree.watch, tree.release_obj)],
+			library_debug / "lib_widg.F284E820.tlog": [(tree.host, tree.host_obj)],
+		}
+		for directory, rows in items.items():
+			directory.mkdir(parents=True)
+			(directory / "Cl.items.tlog").write_text(
+				"".join(f"{item};{output}\n" for item, output in rows),
+				encoding="utf-8",
+			)
+		return tree
+
+	def test_build_lock_recovery_deletes_failed_compile_objects(self):
+		with tempfile.TemporaryDirectory() as temporary:
+			tree = self.failed_build_tree(Path(temporary).resolve())
+			relative = "../../Telegram/SourceFiles"
+			first = tree.build / "first.log"
+			first.write_text(
+				f"{tree.watch}(1,1): error C3859: Failed to create virtual"
+				f" memory for PCH [{tree.project}]\n"
+				"  tgw_runtime.cpp\n"
+				f"  (compiling source file '{relative}/test/test_widget_host.cpp')\n"
+				f"{tree.watch}(1,1): error C1076: compiler limit: internal"
+				f" heap limit reached [{tree.project}]\n"
+				f"  (compiling source file '{relative}/test/test_widget_host.cpp')\n"
+				f"{tree.header}(12,5): error C2065: 'value': undeclared"
+				f" identifier [{tree.project}]\n"
+				f"  (compiling source file '{relative}/tgw/tgw_runtime.cpp')\n"
+				f"{tree.header}(14,1): warning C4100: 'unused': unreferenced"
+				f" parameter [{tree.project}]\n"
+				f"  (compiling source file '{relative}/tgw/tgw_bridge.cpp')\n"
+				f"{tree.unrelated}(3,1): warning C4996: 'old': deprecated"
+				f" [{tree.project}]\n"
+				f"LINK : fatal error LNK1104: cannot open file '{tree.exe}'"
+				f" [{tree.project}]\n"
+				f"{tree.unrelated}(1,1): error MSB6006: \"CL.exe\" exited with"
+				f" code 2. [{tree.project}]\n"
+				"cl : command line error D8016: '/ZI' and '/Gy-' command-line"
+				f" options are incompatible [{tree.project}]\n",
+				encoding="utf-8",
+			)
+			second = tree.build / "second.log"
+			second.write_text(
+				f"{tree.watch}(1,1): error C3859: Failed to create virtual"
+				f" memory for PCH [{tree.project}]\n"
+				f"{tree.host}(40,1): fatal error C1004: unexpected end-of-file"
+				f" found [{tree.library}]",
+				encoding="utf-8",
+			)
+			with (
+				mock.patch.object(
+					workspace,
+					"kill_processes_with_executable",
+					return_value=[],
+				),
+				mock.patch.object(
+					workspace,
+					"locking_process_ids",
+					side_effect=[([], None), ([], None)],
+				),
+				mock.patch.object(
+					workspace,
+					"windows_process_records",
+					return_value=[],
+				),
+				mock.patch.object(
+					workspace,
+					"terminate_process_ids",
+					return_value=[],
+				),
+			):
+				result = run_command(
+					workspace.command_build_lock_recover,
+					source_root=str(tree.source),
+					build_root=str(tree.build),
+					exe=str(tree.exe),
+					artifact=[str(tree.exe)],
+					failed_log=[str(first), str(second), str(first)],
+					wait=0,
+				)
+			self.assertTrue(result["safe_to_retry"])
+			self.assertEqual(
+				[Path(path) for path in result["failed_logs"]],
+				[first, second, first],
+			)
+			self.assertEqual(
+				[Path(path) for path in result["failed_sources"]],
+				[tree.watch, tree.runtime, tree.host],
+			)
+			self.assertEqual(
+				[Path(path) for path in result["artifacts"]],
+				[tree.exe, tree.watch_obj, tree.runtime_obj, tree.host_obj],
+			)
+			self.assertEqual(
+				{Path(path) for path in result["deleted"]},
+				{tree.exe, tree.watch_obj, tree.runtime_obj, tree.host_obj},
+			)
+			for path in (tree.unrelated_obj, tree.release_obj, tree.outside):
+				self.assertTrue(path.is_file())
+
+	def test_build_lock_recovery_takes_attribution_from_the_error_stream(self):
+		with tempfile.TemporaryDirectory() as temporary:
+			tree = self.failed_build_tree(Path(temporary).resolve())
+			relative = "../../Telegram/SourceFiles"
+			log = tree.build / "failed.log"
+			log.write_text(
+				f"2>{tree.watch}(1,1): error C3859: Failed to create virtual"
+				f" memory for PCH [{tree.project}]\n"
+				f"3>  (compiling source file '{relative}/tgw/tgw_bridge.cpp')\n"
+				f"2>  (compiling source file '{relative}/test/test_widget_host.cpp')\n"
+				f"     1>{tree.header}(12,5): error C2065: 'value': undeclared"
+				f" identifier [{tree.project}]\n"
+				f"         (compiling source file '{relative}/tgw/tgw_runtime.cpp')\n",
+				encoding="utf-8",
+			)
+			with (
+				mock.patch.object(
+					workspace,
+					"kill_processes_with_executable",
+					return_value=[],
+				),
+				mock.patch.object(
+					workspace,
+					"locking_process_ids",
+					side_effect=[([], None), ([], None)],
+				),
+				mock.patch.object(
+					workspace,
+					"windows_process_records",
+					return_value=[],
+				),
+				mock.patch.object(
+					workspace,
+					"terminate_process_ids",
+					return_value=[],
+				),
+			):
+				result = run_command(
+					workspace.command_build_lock_recover,
+					source_root=str(tree.source),
+					build_root=str(tree.build),
+					exe=str(tree.exe),
+					artifact=None,
+					failed_log=[str(log)],
+					wait=0,
+				)
+			self.assertTrue(result["safe_to_retry"])
+			self.assertEqual(
+				[Path(path) for path in result["failed_sources"]],
+				[tree.watch, tree.runtime],
+			)
+			self.assertEqual(
+				{Path(path) for path in result["deleted"]},
+				{tree.watch_obj, tree.runtime_obj},
+			)
+			for path in (tree.exe, tree.unrelated_obj, tree.host_obj):
+				self.assertTrue(path.is_file())
+
+	def test_build_lock_recovery_rejects_unresolved_failed_build_before_mutation(self):
+		with tempfile.TemporaryDirectory() as temporary:
+			tree = self.failed_build_tree(Path(temporary).resolve())
+			log = tree.build / "failed.log"
+			outside_project = tree.source / "Telegram" / "Outside.vcxproj"
+			cases = {
+				"neither": (None, "--artifact or --failed-log"),
+				"missing": ("", "log not found"),
+				"unassigned": (
+					f"{tree.header}(12,5): error C2065: 'value': undeclared"
+					f" identifier [{tree.project}]\n"
+					"  tgw_runtime.cpp\n"
+					"  (compiling source file '../../Telegram/SourceFiles/tgw/"
+					"tgw_runtime.cpp')\n",
+					"not attributed",
+				),
+				"contradictory": (
+					f"{tree.runtime}(1,1): error C3859: Failed to create virtual"
+					f" memory for PCH [{tree.project}]\n"
+					f"{tree.watch}(1,1): error C3859: Failed to create virtual"
+					f" memory for PCH [{tree.project}]\n"
+					"  (compiling source file '../../Telegram/SourceFiles/tgw/"
+					"tgw_runtime.cpp')\n"
+					"  (compiling source file '../../Telegram/SourceFiles/test/"
+					"test_widget_host.cpp')\n",
+					"attributed to another source",
+				),
+				"other stream": (
+					f"2>{tree.header}(12,5): error C2065: 'value': undeclared"
+					f" identifier [{tree.project}]\n"
+					"3>  (compiling source file '../../Telegram/SourceFiles/tgw/"
+					"tgw_runtime.cpp')\n",
+					"not attributed",
+				),
+				"unrecognized": (
+					f"{tree.watch}(1,1): error C3859: Failed to create virtual"
+					" memory for PCH\n",
+					"Unrecognized compile error",
+				),
+				"unmapped": (
+					f"{tree.source / 'Telegram' / 'unlisted.cpp'}(1,1): error"
+					f" C3859: Failed to create virtual memory for PCH"
+					f" [{tree.project}]\n",
+					"No Debug compile item",
+				),
+				"outside project": (
+					f"{tree.watch}(1,1): error C3859: Failed to create virtual"
+					f" memory for PCH [{outside_project}]\n",
+					"project is outside the build root",
+				),
+				"outside object": (
+					f"{tree.escaped}(1,1): error C3859: Failed to create virtual"
+					f" memory for PCH [{tree.project}]\n",
+					"artifact is outside the build root",
+				),
+				"utf-16": (
+					f"{tree.watch}(1,1): error C3859: Failed to create virtual"
+					f" memory for PCH [{tree.project}]\n".encode("utf-16"),
+					"not UTF-8 text",
+				),
+			}
+			for name, (content, message) in cases.items():
+				with self.subTest(case=name):
+					log.unlink(missing_ok=True)
+					if isinstance(content, bytes):
+						log.write_bytes(content)
+					elif content:
+						log.write_text(content, encoding="utf-8")
+					with (
+						mock.patch.object(
+							workspace,
+							"kill_processes_with_executable",
+						) as kill,
+						mock.patch.object(
+							workspace,
+							"locking_process_ids",
+						) as holders,
+						mock.patch.object(
+							workspace,
+							"terminate_process_ids",
+						) as terminate,
+						self.assertRaisesRegex(workspace.WorkspaceError, message),
+					):
+						run_command(
+							workspace.command_build_lock_recover,
+							source_root=str(tree.source),
+							build_root=str(tree.build),
+							exe=str(tree.exe),
+							artifact=None,
+							failed_log=None if content is None else [str(log)],
+							wait=0,
+						)
+					kill.assert_not_called()
+					holders.assert_not_called()
+					terminate.assert_not_called()
+					for path in (
+						tree.exe,
+						tree.watch_obj,
+						tree.runtime_obj,
+						tree.host_obj,
+						tree.outside,
+					):
+						self.assertTrue(path.is_file())
 
 	def test_parse_env_values_requires_name_value_pairs(self):
 		self.assertEqual(
@@ -3498,6 +3894,210 @@ class MechanicsTest(unittest.TestCase):
 				self.assertEqual(
 					signal.getsignal(signal.SIGTERM), signal.SIG_DFL,
 				)
+
+	def test_keep_relaunched_clients_tells_relaunches_from_stragglers(self):
+		exe = Path("/synthetic/out/Debug/Telegram.exe")
+		clock = FakeClock()
+		clock.now = 1010.0
+		reads = []
+
+		def starts(path):
+			reads.append(path)
+			listed = {}
+			if clock.now <= 1010.5:
+				listed[11] = 990.0
+			if clock.now <= 1011.5:
+				listed[21] = 1009.8
+			if clock.now >= 1011.0:
+				listed[22] = 1010.6
+			return listed
+
+		with (
+			mock.patch.object(
+				workspace, "executable_process_starts", side_effect=starts,
+			),
+			mock.patch.object(
+				workspace, "kill_process_ids", side_effect=list,
+			) as kill_ids,
+			mock.patch.object(
+				workspace, "kill_processes_with_executable", return_value=[22],
+			) as kill,
+		):
+			stragglers, report = workspace.keep_relaunched_clients(
+				exe, 1000.0, 1010.0, 3.0, clock=clock, sleep=clock.sleep,
+			)
+		self.assertEqual(stragglers, [11])
+		self.assertEqual(kill_ids.call_args_list, [mock.call([11])])
+		self.assertEqual(kill.call_args_list, [mock.call(exe)])
+		self.assertEqual(report, {
+			"bound_seconds": 3.0,
+			"clients": [
+				{"exited_by_itself": True, "pid": 21, "started_seconds": -0.2},
+				{"exited_by_itself": False, "pid": 22, "started_seconds": 0.6},
+			],
+			"ended_at_bound": [22],
+		})
+		self.assertEqual(reads, [exe] * 7)
+		self.assertEqual(clock.sleeps, [workspace.RELAUNCH_POLL_INTERVAL] * 6)
+
+	def test_test_run_refuses_a_bad_or_unsupported_keep_relaunched(self):
+		self.assertIsNone(workspace.relaunch_unsupported_reason(platform="win32"))
+		for platform in ("darwin", "linux"):
+			with self.subTest(platform=platform):
+				self.assertIn(
+					f"this host is {platform}",
+					workspace.relaunch_unsupported_reason(platform=platform),
+				)
+
+		def refused(bound):
+			with tempfile.TemporaryDirectory() as temporary:
+				root = Path(temporary)
+				debug = make_portable_root(root)
+				exe = write_complete_markers_exe(debug / "Telegram")
+				run_dir = root / "run1"
+				with self.assertRaises(workspace.WorkspaceError) as raised:
+					run_test_run(exe, run_dir, keep_relaunched=bound)
+				self.assertFalse(run_dir.exists())
+				self.assertFalse((debug / workspace.PORTABLE_LIVE).exists())
+			return str(raised.exception)
+
+		for bound in (0.0, -1.0, float("inf"), float("nan")):
+			with self.subTest(bound=bound):
+				self.assertRegex(refused(bound), "--keep-relaunched must be")
+		unsupported = workspace.relaunch_unsupported_reason(platform="darwin")
+		with mock.patch.object(
+			workspace, "relaunch_unsupported_reason", return_value=unsupported,
+		):
+			self.assertEqual(refused(5.0), f"--keep-relaunched: {unsupported}")
+
+	def test_test_run_ends_kept_clients_when_interrupted_during_the_bound(self):
+		def interrupt():
+			raise KeyboardInterrupt
+
+		def terminate():
+			signal.getsignal(signal.SIGTERM)(signal.SIGTERM, None)
+
+		previous = signal.signal(signal.SIGTERM, signal.SIG_DFL)
+		self.addCleanup(signal.signal, signal.SIGTERM, previous)
+		for stop, expected, args in (
+			(interrupt, KeyboardInterrupt, ()),
+			(terminate, SystemExit, (128 + signal.SIGTERM,)),
+		):
+			with (
+				self.subTest(stop=stop.__name__),
+				tempfile.TemporaryDirectory() as temporary,
+			):
+				root = Path(temporary).resolve()
+				debug = make_portable_root(root)
+				exe = write_complete_markers_exe(debug / "Telegram")
+				events = []
+
+				def kill(path):
+					events.append(("kill", path))
+					return []
+
+				def starts(path):
+					events.append(("read", path))
+					stop()
+
+				with (
+					mock.patch.object(
+						workspace, "relaunch_unsupported_reason", return_value=None,
+					),
+					mock.patch.object(
+						workspace, "console_input_reading", return_value=(0.0, {}),
+					),
+					mock.patch.object(
+						workspace, "kill_processes_with_executable", side_effect=kill,
+					),
+					mock.patch.object(
+						workspace, "executable_process_starts", side_effect=starts,
+					),
+					self.assertRaises(expected) as raised,
+				):
+					run_test_run(exe, root / "run1", keep_relaunched=30.0)
+				self.assertEqual(raised.exception.args, args)
+				self.assertEqual(
+					events, [("kill", exe), ("read", exe), ("kill", exe)],
+				)
+				self.assertEqual(
+					signal.getsignal(signal.SIGTERM), signal.SIG_DFL,
+				)
+
+	@needs_windows
+	def test_test_run_keeps_a_relaunched_client_for_the_bound(self):
+		with tempfile.TemporaryDirectory() as temporary:
+			root = Path(temporary).resolve()
+			debug = make_portable_root(root)
+			exe, updater = compile_relaunching_client(debug)
+			record = root / "restarted.txt"
+			try:
+				result = run_test_run(
+					exe, root / "run1", keep_relaunched=6.0,
+					env=[f"RELAUNCH_FIXTURE_RECORD={record}"],
+				)
+				returned = time.time()
+				leftovers = workspace.processes_with_executable(exe)
+			finally:
+				workspace.kill_processes_with_executable(updater)
+				workspace.kill_processes_with_executable(exe)
+			restarted = int(record.read_text(encoding="utf-8"))
+			self.assertEqual(result["outcome"], "exited")
+			self.assertEqual(result["verdict_hint"], "complete")
+			self.assertEqual(result["stragglers_killed_after"], [])
+			relaunched = result["relaunched"]
+			self.assertEqual(
+				[client["pid"] for client in relaunched["clients"]], [restarted],
+			)
+			self.assertGreater(relaunched["clients"][0]["started_seconds"], 0)
+			self.assertIs(relaunched["clients"][0]["exited_by_itself"], False)
+			self.assertEqual(relaunched["ended_at_bound"], [restarted])
+			self.assertEqual(relaunched["bound_seconds"], 6.0)
+			self.assertEqual(leftovers, [])
+			beats = Path(f"{record}.beats").read_text(encoding="utf-8")
+			last_beat = (
+				int(beats.splitlines()[-1]) / 10**7
+				- workspace.FILETIME_UNIX_EPOCH_SECONDS
+			)
+			self.assertGreater(last_beat, returned - 2.0)
+
+	@needs_windows
+	def test_test_run_without_keep_relaunched_ends_the_relaunched_client(self):
+		real_kill = workspace.kill_processes_with_executable
+		with tempfile.TemporaryDirectory() as temporary:
+			root = Path(temporary).resolve()
+			debug = make_portable_root(root)
+			exe, updater = compile_relaunching_client(debug)
+			record = root / "restarted.txt"
+			calls = []
+
+			def kill(path):
+				calls.append(path)
+				if len(calls) == 2:
+					deadline = time.monotonic() + HOST_LOAD_FIXTURE_TIMEOUT
+					while not record.is_file():
+						if time.monotonic() > deadline:
+							self.fail(f"the fixture never restarted the client: {record}")
+						time.sleep(0.01)
+				return real_kill(path)
+
+			try:
+				with mock.patch.object(
+					workspace, "kill_processes_with_executable", side_effect=kill,
+				):
+					result = run_test_run(
+						exe, root / "run1", env=[f"RELAUNCH_FIXTURE_RECORD={record}"],
+					)
+				leftovers = workspace.processes_with_executable(exe)
+			finally:
+				real_kill(updater)
+				real_kill(exe)
+			restarted = int(record.read_text(encoding="utf-8"))
+			self.assertNotIn("relaunched", result)
+			self.assertEqual(calls, [exe, exe])
+			self.assertEqual(result["stragglers_killed"], [])
+			self.assertEqual(result["stragglers_killed_after"], [restarted])
+			self.assertEqual(leftovers, [])
 
 	def test_parse_test_log_lists_skipped_rows_beside_pass_and_fail(self):
 		markers = workspace.parse_test_log("\n".join([
@@ -6483,6 +7083,126 @@ class MechanicsTest(unittest.TestCase):
 						mark_green=False,
 					)
 
+	def test_source_commit_commits_a_moved_owned_submodule_pin(self):
+		with (
+			tempfile.TemporaryDirectory() as temporary,
+			mock.patch.dict(os.environ, GIT_TEST_ENV),
+		):
+			root = Path(temporary)
+			source, slot, work, config, module = overlay_repo_with_nested_module(
+				root, PINNED_MODULE,
+			)
+			git(
+				source, "update-ref",
+				workspace.source_task_ref(TASK_ID, "base"), "HEAD",
+			)
+			config["checkout_tag"] = "macbook-twork"
+			mirror = root / "mirror.git"
+			git(root, "init", "-q", "--bare", str(mirror))
+			git(source, "remote", "add", "private", str(mirror))
+			git(source, "config", "push.recurseSubmodules", "check")
+			(work / "owned-paths.txt").write_text(
+				f"{PINNED_MODULE}\n{PINNED_MODULE}/tracked.txt\ntracked.txt\n",
+				encoding="utf-8",
+			)
+			(module / "tracked.txt").write_text(
+				"module-base\nfirst\n", encoding="utf-8",
+			)
+			git(module, "commit", "-q", "-am", "Change the module")
+			git(source, "add", PINNED_MODULE)
+			(module / "tracked.txt").write_text(
+				"module-base\nfirst\nsecond\n", encoding="utf-8",
+			)
+			git(module, "commit", "-q", "-am", "Change the module again")
+			(source / "tracked.txt").write_text("task\n", encoding="utf-8")
+			pin = git(module, "rev-parse", "HEAD")
+			with mock.patch.object(
+				workspace, "task_action_config", return_value=(config, slot),
+			):
+				result = run_command(
+					workspace.command_source_commit,
+					task=TASK_ID,
+					subject="Move the module pin",
+					mark_green=True,
+				)
+			self.assertEqual(result["committed"], [PINNED_MODULE, "tracked.txt"])
+			self.assertTrue(result["marked_green"])
+			self.assertEqual(result["mirror"], {
+				"branch": "ai-macbook-twork",
+				"pushed": True,
+				"remote": "private",
+			})
+			self.assertEqual(
+				git(source, "show", "-s", "--format=%B", "HEAD"),
+				f"Move the module pin\n\nTask: {TASK_ID}",
+			)
+			self.assertEqual(
+				git(source, "show", "--name-status", "--format=", "HEAD"),
+				f"M\t{PINNED_MODULE}\nM\ttracked.txt",
+			)
+			self.assertEqual(
+				git(source, "rev-parse", f"HEAD:{PINNED_MODULE}"), pin,
+			)
+			head = git(source, "rev-parse", "HEAD")
+			for name in ("green", "run"):
+				self.assertEqual(
+					workspace.resolved_ref(
+						source, workspace.source_task_ref(TASK_ID, name),
+					),
+					head,
+				)
+			self.assertEqual(
+				git(mirror, "rev-parse", "refs/heads/ai-macbook-twork"), head,
+			)
+			self.assertEqual(git(source, "status", "--porcelain"), "")
+
+	def test_source_commit_refuses_an_unowned_or_dirty_submodule_pin(self):
+		with (
+			tempfile.TemporaryDirectory() as temporary,
+			mock.patch.dict(os.environ, GIT_TEST_ENV),
+		):
+			source, slot, work, config, module = overlay_repo_with_nested_module(
+				temporary, PINNED_MODULE,
+			)
+			git(
+				source, "update-ref",
+				workspace.source_task_ref(TASK_ID, "base"), "HEAD",
+			)
+			(module / "tracked.txt").write_text(
+				"module-base\nfirst\n", encoding="utf-8",
+			)
+			git(module, "commit", "-q", "-am", "Change the module")
+			(source / "tracked.txt").write_text("task\n", encoding="utf-8")
+			head = git(source, "rev-parse", "HEAD")
+			index = git(source, "ls-files", "-s")
+
+			def refused(owned, pattern):
+				(work / "owned-paths.txt").write_text(owned, encoding="utf-8")
+				with mock.patch.object(
+					workspace, "task_action_config", return_value=(config, slot),
+				):
+					with self.assertRaisesRegex(workspace.WorkspaceError, pattern):
+						run_command(
+							workspace.command_source_commit,
+							task=TASK_ID,
+							subject="Move the module pin",
+							mark_green=True,
+						)
+				self.assertEqual(git(source, "rev-parse", "HEAD"), head)
+				self.assertEqual(git(source, "ls-files", "-s"), index)
+				self.assertIsNone(workspace.resolved_ref(
+					source, workspace.source_task_ref(TASK_ID, "green"),
+				))
+
+			refused(
+				f"Telegram/ThirdParty\n{PINNED_MODULE}/tracked.txt\ntracked.txt\n",
+				"outside the owned write set: Telegram/ThirdParty/dep",
+			)
+			(module / "tracked.txt").write_text(
+				"module-base\nfirst\nuncommitted\n", encoding="utf-8",
+			)
+			refused(f"{PINNED_MODULE}\ntracked.txt\n", "uncommitted changes")
+
 	def test_already_satisfied_source_state_requires_baseline(self):
 		with tempfile.TemporaryDirectory() as temporary:
 			root = Path(temporary)
@@ -7686,6 +8406,64 @@ class ProjectBranchTest(unittest.TestCase):
 		git(path, "submodule", "update", "--quiet", "--init")
 		return path
 
+	ON_DEMAND_FETCHES = {
+		"GIT_CONFIG_COUNT": "4",
+		"GIT_CONFIG_KEY_3": "fetch.recurseSubmodules",
+		"GIT_CONFIG_VALUE_3": "on-demand",
+	}
+
+	def make_nested_module(self, name):
+		module = self.root / f"{name}.git"
+		nested = self.root / f"{name}-nested.git"
+		for bare in (module, nested):
+			git(
+				self.root, "init", "--quiet", "--bare",
+				"--initial-branch=master", str(bare),
+			)
+		seed_nested = self.root / f"seed-{name}-nested"
+		git_repo(seed_nested)
+		write_file(seed_nested, "nested.txt", "nested\n")
+		git(seed_nested, "add", "nested.txt")
+		git(seed_nested, "commit", "-m", "Create nested module")
+		git(seed_nested, "push", "--quiet", str(nested), "HEAD:refs/heads/master")
+		seed = self.root / f"seed-{name}"
+		git_repo(seed)
+		git(seed, "submodule", "add", "--quiet", str(nested), "packages/x/N")
+		git(seed, "commit", "-m", "Record nested module")
+		git(seed, "push", "--quiet", str(module), "HEAD:refs/heads/master")
+		return module, nested
+
+	def publish_nested_module(self, branch, path, name):
+		work = self.root / f"publish-{branch}"
+		git(
+			self.root, "clone", "--quiet", "--branch", PROJECT,
+			str(self.private), str(work),
+		)
+		git(work, "submodule", "add", "--quiet", str(self.root / f"{name}.git"), path)
+		git(work, "commit", "-m", f"Record {path}")
+		git(work, "push", "--quiet", "origin", f"HEAD:refs/heads/{branch}")
+
+	def move_nested_module(self, branch, path):
+		work = Path(tempfile.mkdtemp(prefix="move-", dir=self.root))
+		git(
+			self.root, "clone", "--quiet", "--recurse-submodules", "--branch", branch,
+			str(self.private), str(work),
+		)
+		module = work / path
+		nested = module / "packages/x/N"
+		git(nested, "checkout", "--quiet", "--detach", "origin/master")
+		write_file(nested, f"{work.name}.txt", "advance\n")
+		git(nested, "add", f"{work.name}.txt")
+		git(nested, "commit", "-m", "Advance nested module")
+		git(nested, "push", "--quiet", "origin", "HEAD:refs/heads/master")
+		git(module, "add", "packages/x/N")
+		git(module, "commit", "-m", "Move nested module")
+		git(module, "push", "--quiet", "origin", "HEAD:refs/heads/master")
+		git(work, "add", path)
+		git(work, "commit", "-m", f"Move {path}")
+		git(work, "push", "--quiet", "origin", f"HEAD:refs/heads/{branch}")
+		return tuple(git(repo, "rev-parse", "HEAD") for repo in (work, module, nested))
+
 	def run_task(self, handler, source, slot, tag, **arguments):
 		config = {
 			"source_root": str(source),
@@ -8829,6 +9607,328 @@ class ProjectBranchTest(unittest.TestCase):
 		config = {"source_root": str(first)}
 		report = workspace.source_lineage_report(config, slot, TASK_A)
 		self.assertEqual(report["compatible_local_branches"], [])
+
+	def test_another_branchs_nested_submodule_does_not_stop_a_sync(self):
+		for mode in ("on-demand", "true"):
+			with self.subTest(recursion=mode):
+				other = f"other-{mode}"
+				tag = f"xps-{mode}"
+				module_remote, _ = self.make_nested_module(other)
+				self.publish_nested_module(other, "a/S", other)
+				module_head = git(module_remote, "rev-parse", "refs/heads/master")
+				source = self.clone(tag)
+				slot = project_slot(self.root, TASK_A, tag)
+				git(source, "checkout", "--quiet", "--detach", f"private/{other}")
+				git(source, "submodule", "update", "--quiet", "--init", "--recursive")
+				git(source, "checkout", "--quiet", PROJECT)
+				shutil.rmtree(source / "a/S")
+				retained = source / ".git/modules/a/S"
+				self.assertIsNone(workspace.gitlink_at(source, "HEAD", "a/S"))
+				self.assertTrue((retained / "modules/packages/x/N").is_dir())
+				self.assertEqual(workspace.source_changed_paths(source), [])
+
+				def retained_commit(revision):
+					return workspace.run_git(
+						self.root, f"--git-dir={retained}", "--work-tree=.",
+						"rev-parse", "--verify", "--quiet", f"{revision}^{{commit}}",
+						check=False,
+					).stdout.strip()
+
+				begin_task(source, TASK_A)
+				commit_task(source, TASK_A, f"{tag}.txt")
+				head = git(source, "rev-parse", "HEAD")
+				preference = {**self.ON_DEMAND_FETCHES, "GIT_CONFIG_VALUE_3": mode}
+				for command in (self.sync, self.push):
+					other_tip, module_tip, _ = self.move_nested_module(other, "a/S")
+					with mock.patch.dict(os.environ, preference):
+						command(source, slot, tag, TASK_A)
+					self.assertEqual(
+						git(source, "rev-parse", f"refs/remotes/private/{other}"),
+						other_tip,
+					)
+					self.assertEqual(git(source, "rev-parse", "HEAD"), head)
+					self.assertEqual(retained_commit("HEAD"), module_head)
+					self.assertEqual(retained_commit(module_tip), "")
+					self.assertFalse((source / "a/S").exists())
+				self.assertEqual(
+					git(self.private, "rev-parse", f"refs/heads/{PROJECT}"), head,
+				)
+
+	def test_moved_pins_arrive_without_recursive_fetches(self):
+		self.make_nested_module("S")
+		self.publish_nested_module(PROJECT, "lib/S", "S")
+		first = self.clone("first")
+		second = self.clone("second")
+		for checkout in (first, second):
+			git(checkout, "submodule", "update", "--quiet", "--init", "--recursive")
+		slot = project_slot(self.root, TASK_A, "xps-first")
+		begin_task(first, TASK_A)
+		commit_task(first, TASK_A, "own.txt")
+		self.assertEqual(workspace.submodule_ranges(
+			first, git(first, "rev-parse", "HEAD^"), [git(first, "rev-parse", "HEAD")],
+		), {})
+		source_tip, module_tip, nested_tip = self.move_nested_module(PROJECT, "lib/S")
+
+		with mock.patch.dict(os.environ, self.ON_DEMAND_FETCHES):
+			workspace.fetch_remote(first, "private")
+		self.assertIsNone(workspace.resolved_ref(first / "lib/S", module_tip))
+		with mock.patch.dict(os.environ, self.ON_DEMAND_FETCHES):
+			result = self.sync(first, slot, "xps-first", TASK_A)
+		self.assertTrue(result["synced"])
+		self.assertEqual((first / "own.txt").read_text(encoding="utf-8"), "own.txt\n")
+		self.assertEqual(git(first, "rev-parse", "HEAD^"), source_tip)
+		self.assertEqual(
+			git(first, "rev-parse", f"refs/remotes/private/{PROJECT}"), source_tip,
+		)
+
+		self.assertIsNone(workspace.resolved_ref(second / "lib/S", module_tip))
+		with mock.patch.dict(os.environ, self.ON_DEMAND_FETCHES), mock.patch.object(
+			workspace, "repository_config", return_value={"ai_main": str(slot)},
+		):
+			self.assertTrue(workspace.update_project_branch(None, second))
+		self.assertEqual(git(second, "rev-parse", "HEAD"), source_tip)
+
+		for checkout in (first, second):
+			self.assertEqual(git(checkout / "lib/S", "rev-parse", "HEAD"), module_tip)
+			self.assertEqual(
+				git(checkout / "lib/S/packages/x/N", "rev-parse", "HEAD"), nested_tip,
+			)
+			self.assertEqual(workspace.mismatched_submodules(checkout), [])
+			self.assertEqual(workspace.source_changed_paths(checkout), [])
+
+	def test_worktree_protection_fetches_a_target_without_recursion(self):
+		module_remote, nested_remote = self.make_nested_module("S")
+		self.publish_nested_module(PROJECT, "lib/S", "S")
+		source = self.clone("source")
+		git(source, "submodule", "update", "--quiet", "--init", "--recursive")
+		module = source / "lib/S"
+		nested = module / "packages/x/N"
+		module_head = git(module, "rev-parse", "HEAD")
+		nested_head = git(nested, "rev-parse", "HEAD")
+		scratch = module / "scratch"
+		git(nested_remote, "worktree", "add", "--quiet", "--detach", str(scratch), nested_head)
+		self.assertEqual(workspace.registered_nested_worktrees(module), ["scratch"])
+
+		self.move_nested_module(PROJECT, "lib/S")
+		target = git(module_remote, "rev-parse", "refs/heads/master")
+		nested_target = git(nested_remote, "rev-parse", "refs/heads/master")
+		self.assertIsNone(workspace.resolved_ref(module, target))
+		self.assertIsNone(workspace.resolved_ref(nested, nested_target))
+
+		with mock.patch.dict(os.environ, self.ON_DEMAND_FETCHES):
+			workspace.protect_worktrees_from_submodule_target(module, target)
+		self.assertEqual(workspace.resolved_ref(module, target), target)
+		self.assertIsNone(workspace.resolved_ref(nested, nested_target))
+		self.assertEqual(git(module, "rev-parse", "HEAD"), module_head)
+		self.assertEqual(git(nested, "rev-parse", "HEAD"), nested_head)
+		self.assertEqual(git(scratch, "rev-parse", "HEAD"), nested_head)
+		self.assertEqual((scratch / "nested.txt").read_text(encoding="utf-8"), "nested\n")
+
+	def test_nested_pins_remain_mergeable_during_project_sync(self):
+		module_remote, nested_remote = self.make_nested_module("S")
+		self.publish_nested_module(PROJECT, "lib/S", "S")
+		source = self.clone("source")
+		git(source, "submodule", "update", "--quiet", "--init", "--recursive")
+		slot = project_slot(self.root, TASK_A, "xps-source")
+		begin_task(source, TASK_A)
+		module = source / "lib/S"
+		nested = module / "packages/x/N"
+		write_file(nested, "task-nested.txt", "task\n")
+		git(nested, "add", "task-nested.txt")
+		git(nested, "commit", "-m", "Advance nested module in the task")
+		git(nested, "push", "--quiet", "origin", "HEAD:refs/heads/master")
+		published_nested = git(nested, "rev-parse", "HEAD")
+		write_file(module, "own-module.txt", "own module\n")
+		git(module, "add", "own-module.txt", "packages/x/N")
+		git(module, "commit", "-m", "Record the nested advance")
+		git(source, "add", "lib/S")
+		commit_task(source, TASK_A, "own.txt")
+
+		source_tip, module_tip, nested_tip = self.move_nested_module(PROJECT, "lib/S")
+		self.assertEqual(git(nested_remote, "rev-parse", f"{nested_tip}^"), published_nested)
+		self.assertIsNone(workspace.resolved_ref(nested, nested_tip))
+
+		with mock.patch.dict(os.environ, self.ON_DEMAND_FETCHES):
+			result = self.sync(source, slot, "xps-source", TASK_A)
+		self.assertTrue(result["synced"])
+		head = git(source, "rev-parse", "HEAD")
+		pin = git(source, "rev-parse", "HEAD:lib/S")
+		self.assertEqual(git(source, "rev-parse", "HEAD^"), source_tip)
+		self.assertEqual(git(source, "show", "HEAD:own.txt"), "own.txt")
+		self.assertEqual(git(module, "rev-parse", f"{pin}^"), module_tip)
+		self.assertEqual(git(module, "show", f"{pin}:own-module.txt"), "own module")
+		self.assertEqual(git(module, "rev-parse", f"{pin}:packages/x/N"), nested_tip)
+		self.assertEqual(git(module, "rev-parse", "HEAD"), pin)
+		self.assertEqual(git(nested, "rev-parse", "HEAD"), nested_tip)
+		self.assertEqual(workspace.mismatched_submodules(source), [])
+		self.assertEqual(workspace.source_changed_paths(source), [])
+
+		with mock.patch.dict(os.environ, self.ON_DEMAND_FETCHES):
+			pushed = self.push(source, slot, "xps-source", TASK_A)
+		self.assertEqual(pushed["submodules"], ["lib/S"])
+		self.assertEqual(git(self.private, "rev-parse", f"refs/heads/{PROJECT}"), head)
+		self.assertEqual(git(module_remote, "rev-parse", f"refs/heads/{PROJECT}"), pin)
+
+	def test_syncing_a_removed_submodule_leaves_the_checkout_clean(self):
+		source = self.clone("source")
+		slot = project_slot(self.root, TASK_A, "xps-source")
+		begin_task(source, TASK_A)
+		git(source, "rm", "--quiet", "dep")
+		commit_task(source, TASK_A, "own.txt")
+		self.assertEqual(workspace.source_changed_paths(source), [])
+
+		peer = self.clone("peer")
+		write_file(peer, "incoming.txt", "incoming\n")
+		git(peer, "add", "incoming.txt")
+		git(peer, "commit", "-m", "Advance source")
+		git(peer, "push", "--quiet", "private", f"HEAD:refs/heads/{PROJECT}")
+		incoming = git(peer, "rev-parse", "HEAD")
+
+		result = self.sync(source, slot, "xps-source", TASK_A)
+		self.assertTrue(result["synced"])
+		self.assertEqual(git(source, "rev-parse", "HEAD^"), incoming)
+		self.assertTrue((source / "own.txt").is_file())
+		self.assertIsNone(workspace.gitlink_at(source, "HEAD", "dep"))
+		self.assertEqual(workspace.source_changed_paths(source), [])
+		self.assertFalse((source / "dep").exists())
+
+		self.push(source, slot, "xps-source", TASK_A)
+		self.assertEqual(
+			git(self.private, "rev-parse", f"refs/heads/{PROJECT}"),
+			git(source, "rev-parse", "HEAD"),
+		)
+
+	def test_syncing_a_removed_nested_submodule_leaves_the_checkout_clean(self):
+		module_remote, _ = self.make_nested_module("S")
+		self.publish_nested_module(PROJECT, "lib/S", "S")
+		source = self.clone("source")
+		git(source, "submodule", "update", "--quiet", "--init", "--recursive")
+		slot = project_slot(self.root, TASK_A, "xps-source")
+		begin_task(source, TASK_A)
+		module = source / "lib/S"
+		git(module, "rm", "--quiet", "packages/x/N")
+		git(module, "commit", "-m", "Remove nested module")
+		git(source, "add", "lib/S")
+		commit_task(source, TASK_A, "own.txt")
+		self.assertEqual(workspace.source_changed_paths(source), [])
+
+		peer = self.clone("peer")
+		peer_module = peer / "lib/S"
+		write_file(peer_module, "incoming-module.txt", "incoming\n")
+		git(peer_module, "add", "incoming-module.txt")
+		git(peer_module, "commit", "-m", "Advance module")
+		git(peer_module, "push", "--quiet", "origin", "HEAD:refs/heads/master")
+		incoming = git(peer_module, "rev-parse", "HEAD")
+		git(peer, "add", "lib/S")
+		git(peer, "commit", "-m", "Advance source")
+		git(peer, "push", "--quiet", "private", f"HEAD:refs/heads/{PROJECT}")
+
+		result = self.sync(source, slot, "xps-source", TASK_A)
+		self.assertTrue(result["synced"])
+		pin = git(source, "rev-parse", "HEAD:lib/S")
+		self.assertEqual(git(module, "rev-parse", f"{pin}^"), incoming)
+		self.assertEqual(git(module, "rev-parse", "HEAD"), pin)
+		self.assertIsNone(workspace.gitlink_at(module, pin, "packages/x/N"))
+		self.assertTrue((source / "own.txt").is_file())
+		self.assertTrue((module / "incoming-module.txt").is_file())
+		self.assertEqual(workspace.source_changed_paths(module), [])
+		self.assertEqual(workspace.source_changed_paths(source), [])
+		self.assertFalse((module / "packages/x/N").exists())
+
+		pushed = self.push(source, slot, "xps-source", TASK_A)
+		self.assertEqual(pushed["submodules"], ["lib/S"])
+		self.assertEqual(
+			git(self.private, "rev-parse", f"refs/heads/{PROJECT}"),
+			git(source, "rev-parse", "HEAD"),
+		)
+		self.assertEqual(git(module_remote, "rev-parse", f"refs/heads/{PROJECT}"), pin)
+
+	@unittest.skipIf(os.name == "nt", "Requires unprivileged directory symlinks")
+	def test_a_symlink_replaced_by_a_nested_submodule_keeps_other_checkouts_untouched(self):
+		for has_origin in (True, False):
+			with self.subTest(external_origin=has_origin):
+				self.setUp()
+				seed_external = self.root / "seed-external"
+				git_repo(seed_external)
+				write_file(seed_external, "external.txt", "external\n")
+				git(seed_external, "add", "external.txt")
+				git(seed_external, "commit", "-m", "Create external checkout")
+				external_remote = self.root / "external.git"
+				git(self.root, "clone", "--quiet", "--bare", str(seed_external), str(external_remote))
+				external = self.root / "external"
+				git(self.root, "clone", "--quiet", str(external_remote), str(external))
+
+				baseline = self.clone("baseline")
+				(baseline / "dep/nested").symlink_to(external, target_is_directory=True)
+				git(baseline / "dep", "add", "nested")
+				git(baseline / "dep", "commit", "-m", "Track the external checkout")
+				git(baseline / "dep", "push", "--quiet", "origin", "HEAD:refs/heads/master")
+				git(baseline, "add", "dep")
+				git(baseline, "commit", "-m", "Advance module baseline")
+				git(baseline, "push", "--quiet", "private", f"HEAD:refs/heads/{PROJECT}")
+
+				source = self.clone("source")
+				module = source / "dep"
+				slot = project_slot(self.root, TASK_A, "xps-source")
+				begin_task(source, TASK_A)
+				commit_task(source, TASK_A, "own.txt", "own-module.txt")
+				self.assertTrue((module / "nested").is_symlink())
+				self.assertEqual(workspace.source_changed_paths(source), [])
+
+				_, nested_remote = self.make_nested_module("new")
+				nested_pin = git(nested_remote, "rev-parse", "refs/heads/master")
+				peer = self.clone("peer")
+				git(peer / "dep", "rm", "--quiet", "nested")
+				git(peer / "dep", "submodule", "add", "--quiet", str(nested_remote), "nested")
+				git(peer / "dep", "commit", "-m", "Replace the symlink with a nested module")
+				git(peer / "dep", "push", "--quiet", "origin", "HEAD:refs/heads/master")
+				git(peer, "add", "dep")
+				git(peer, "commit", "-m", "Advance module")
+				git(peer, "push", "--quiet", "private", f"HEAD:refs/heads/{PROJECT}")
+				module_tip = git(peer / "dep", "rev-parse", "HEAD")
+				source_tip = git(peer, "rev-parse", "HEAD")
+
+				newer = None
+				if has_origin:
+					write_file(seed_external, "newer.txt", "newer\n")
+					git(seed_external, "add", "newer.txt")
+					git(seed_external, "commit", "-m", "Advance external origin")
+					git(seed_external, "push", "--quiet", str(external_remote), "HEAD")
+					newer = git(seed_external, "rev-parse", "HEAD")
+					self.assertIsNone(workspace.resolved_ref(external, newer))
+				else:
+					git(external, "remote", "remove", "origin")
+				self.assertIsNone(workspace.resolved_ref(external, nested_pin))
+
+				def external_state():
+					return git(external, "rev-parse", "HEAD"), git(external, "for-each-ref")
+
+				external_before = external_state()
+
+				result = self.sync(source, slot, "xps-source", TASK_A)
+				self.assertTrue(result["synced"])
+				pin = git(source, "rev-parse", "HEAD:dep")
+				self.assertEqual(git(source, "rev-parse", "HEAD^"), source_tip)
+				self.assertEqual(git(module, "rev-parse", f"{pin}^"), module_tip)
+				self.assertEqual(git(module, "show", f"{pin}:own-module.txt"), "own-module.txt")
+				self.assertEqual(workspace.gitlink_at(module, pin, "nested"), nested_pin)
+				self.assertTrue((module / "nested").is_dir())
+				self.assertFalse((module / "nested").is_symlink())
+				self.assertEqual(git(module / "nested", "rev-parse", "HEAD"), nested_pin)
+				self.assertEqual(workspace.source_changed_paths(module), [])
+				self.assertEqual(workspace.source_changed_paths(source), [])
+				self.assertEqual(workspace.mismatched_submodules(source), [])
+				self.assertEqual(external_state(), external_before)
+				if newer is not None:
+					self.assertIsNone(workspace.resolved_ref(external, newer))
+
+				pushed = self.push(source, slot, "xps-source", TASK_A)
+				self.assertEqual(pushed["submodules"], ["dep"])
+				self.assertEqual(
+					git(self.private, "rev-parse", f"refs/heads/{PROJECT}"),
+					git(source, "rev-parse", "HEAD"),
+				)
+				self.assertEqual(git(self.dep, "rev-parse", f"refs/heads/{PROJECT}"), pin)
 
 
 class RoutingRevisionTest(unittest.TestCase):

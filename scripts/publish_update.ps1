@@ -23,9 +23,10 @@ if ([string]::IsNullOrWhiteSpace($OutputPath)) {
 
 $appExe = Join-Path $ReleasePath "TG190x4.exe"
 $updaterExe = Join-Path $ReleasePath "Updater.exe"
+$widgetHelperExe = Join-Path $ReleasePath "modules\x64\TelegramWidgetHelper.exe"
 $packerExe = Join-Path $ReleasePath "Packer.exe"
 
-foreach ($required in @($appExe, $updaterExe, $packerExe)) {
+foreach ($required in @($appExe, $updaterExe, $widgetHelperExe, $packerExe)) {
     if (-not (Test-Path -LiteralPath $required)) {
         throw "Missing $required. Build with TG190X4_ENABLE_AUTOUPDATE=ON first."
     }
@@ -56,7 +57,7 @@ New-Item -ItemType Directory -Path $OutputPath -Force | Out-Null
 Write-Host "Packing update $versionString ($versionNumber)..."
 Push-Location $OutputPath
 try {
-    & $packerExe -path $appExe -path $updaterExe -target win64 -version $versionNumber | Out-Host
+    & $packerExe -path $appExe -path $updaterExe -path $widgetHelperExe -target win64 -version $versionNumber | Out-Host
     if ($LASTEXITCODE -ne 0) {
         throw "Packer failed with exit code $LASTEXITCODE."
     }

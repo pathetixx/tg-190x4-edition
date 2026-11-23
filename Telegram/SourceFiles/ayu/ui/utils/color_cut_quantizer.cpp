@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <stdexcept>
 
 namespace Ayu::Ui {
 
